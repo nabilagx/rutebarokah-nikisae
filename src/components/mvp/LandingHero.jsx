@@ -26,10 +26,10 @@ export default function LandingHero() {
       <div className="section-shell relative grid min-h-[560px] items-center gap-8 py-8 lg:grid-cols-[0.95fr_1.05fr] lg:py-12">
         <div className="relative z-10">
           <h1 className="font-display text-[42px] font-bold leading-[1.05] text-[#064E3B] md:text-[64px]">
-            Platform UMKM Halal #1 untuk Ekosistem Ibadah
+            Temukan UMKM Halal Tepercaya di Setiap Rute Ibadah
           </h1>
           <p className="mt-4 text-xl font-bold text-[#B8871F]">
-            Temukan UMKM Halal Terpercaya di Setiap Rute Ibadah
+            Platform kurasi dan matching vendor halal untuk ekosistem haji & umrah.
           </p>
           <p className="mt-5 max-w-2xl text-base leading-8 text-[#1F2937]/75">
             RuteBarokah membantu travel, KBIH, komunitas masjid, keluarga jamaah, dan jamaah menemukan vendor konsumsi halal dan layanan pendukung haji-umrah secara lebih mudah, relevan, dan terkurasi.

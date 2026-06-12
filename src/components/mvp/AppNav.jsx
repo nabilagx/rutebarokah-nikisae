@@ -5,7 +5,6 @@ import Link from "next/link";
 import { Menu, Search, X } from "lucide-react";
 
 const links = [
-  ["Beranda", "/"],
   ["Vendor", "/vendors"],
   ["Daftar UMKM", "/join-umkm"],
   ["Request Vendor", "/request-vendor"],

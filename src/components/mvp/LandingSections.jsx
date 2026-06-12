@@ -1,8 +1,6 @@
 import React from "react";
 import Link from "next/link";
 import {
-  ArrowRight,
-  BadgeCheck,
   BarChart3,
   CheckCircle2,
   Handshake,
@@ -37,7 +35,7 @@ const business = [
   [Rocket, "Premium Boost", "Tampil lebih menonjol di hasil pencarian."],
 ];
 
-export default function LandingSections() {
+export default function LandingSections({ featuredSlot = null }) {
   return (
     <>
       <InfoSection title="Tantangan yang Sering Dihadapi" subtitle="Mencari vendor halal untuk kegiatan ibadah masih penuh hambatan dan ketidakpastian." items={challenges} />
@@ -52,17 +50,8 @@ export default function LandingSections() {
           ))}
         </div>
       </section>
-      <section className="section-shell py-12">
-        <div className="mb-6 flex flex-col gap-3 text-center md:flex-row md:items-end md:justify-between md:text-left">
-          <div className="md:flex-1">
-            <h2 className="font-display text-4xl font-bold text-[#064E3B]">Vendor Unggulan</h2>
-            <p className="mt-1 text-[#1F2937]/65">UMKM halal terpilih dengan Barokah Score tertinggi</p>
-          </div>
-          <Link href="/vendors" className="mx-auto inline-flex items-center gap-2 rounded-xl border border-[#064E3B]/20 bg-white px-5 py-3 font-bold text-[#064E3B] shadow-soft md:mx-0">
-            Lihat Semua <ArrowRight size={17} />
-          </Link>
-        </div>
-      </section>
+      {featuredSlot}
+      <BarokahScoreSection />
       <section className="section-shell pb-10">
         <div className="text-center">
           <h2 className="font-display text-4xl font-bold text-[#064E3B]">Model Bisnis</h2>
@@ -82,6 +71,38 @@ export default function LandingSections() {
       </section>
       <ImpactAndCta />
     </>
+  );
+}
+
+function BarokahScoreSection() {
+  const scoreItems = [
+    "Verifikasi admin dan kelengkapan profil",
+    "Kualitas layanan dan ketepatan respon",
+    "Kapasitas melayani rombongan jamaah",
+    "Harga wajar dan transparan",
+    "Dampak untuk UMKM lokal halal",
+  ];
+
+  return (
+    <section className="section-shell py-12">
+      <div className="grid gap-6 rounded-[24px] bg-[#064E3B] p-7 text-white shadow-premium md:grid-cols-[0.85fr_1.15fr] md:p-10">
+        <div>
+          <p className="text-sm font-bold uppercase tracking-[0.22em] text-[#D6A84F]">Barokah Score</p>
+          <h2 className="mt-3 font-display text-4xl font-bold">Skor kepercayaan untuk memilih vendor halal.</h2>
+          <p className="mt-4 leading-7 text-white/75">
+            Barokah Score membantu jamaah, travel, dan KBIH menilai UMKM berdasarkan kurasi, kualitas layanan, kesiapan rombongan, dan dampak sosial.
+          </p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {scoreItems.map((item) => (
+            <div key={item} className="flex items-start gap-3 rounded-2xl bg-white/9 p-4">
+              <CheckCircle2 size={21} className="mt-0.5 shrink-0 text-[#D6A84F]" />
+              <span className="text-sm font-semibold leading-6 text-white/86">{item}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }
 
