@@ -13,9 +13,9 @@ const HERO_IMAGE =
   "https://upload.wikimedia.org/wikipedia/commons/thumb/b/be/Al_Qibla.jpg/960px-Al_Qibla.jpg";
 
 const stats = [
-  [UsersRound, "200+", "UMKM Terdaftar"],
-  [Award, "92", "Avg Barokah Score"],
-  [Store, "1.200+", "Lead Terhubung"],
+  [UsersRound, "50+", "Target UMKM Validasi"],
+  [Award, "MVP", "Barokah Score System"],
+  [Store, "3", "Segmen Buyer Utama"],
 ];
 
 export default function LandingHero() {
@@ -97,12 +97,12 @@ function HeroPhoto() {
           Barokah Score
         </div>
         <div className="flex items-end gap-2">
-          <strong className="font-display text-5xl leading-none text-[#064E3B]">92</strong>
-          <span className="pb-1 text-sm font-bold text-[#1F2937]/60">/100</span>
+          <strong className="font-display text-5xl leading-none text-[#064E3B]">MVP</strong>
+          <span className="pb-1 text-sm font-bold text-[#1F2937]/60">beta</span>
         </div>
         <div className="mt-2 text-[#D6A84F]">★★★★★</div>
         <p className="mt-2 text-xs leading-5 text-[#1F2937]/60">
-          Vendor terkurasi dari data layanan, kapasitas, dan respon mitra.
+          Sistem skor berbasis kurasi, data layanan, kapasitas, dan respon mitra.
         </p>
       </div>
 

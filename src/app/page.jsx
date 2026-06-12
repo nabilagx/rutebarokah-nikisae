@@ -83,6 +83,9 @@ function FeaturedUmkm({ vendors }) {
           <div>
             <h2 className="font-display text-4xl font-bold text-[#064E3B]">Featured UMKM</h2>
             <p className="mt-1 text-[#1F2937]/65">UMKM halal pilihan dari Supabase, dengan fallback dummy untuk demo.</p>
+            <span className="mt-3 inline-flex rounded-full bg-[#ECFDF5] px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-[#064E3B]">
+              Fokus MVP: Konsumsi Halal & Catering Rombongan
+            </span>
           </div>
           <Link href="/vendors" className="mx-auto inline-flex items-center gap-2 rounded-xl border border-[#064E3B]/20 bg-white px-5 py-3 font-bold text-[#064E3B] shadow-soft md:mx-0">
             Lihat Semua <ArrowRight size={17} />
