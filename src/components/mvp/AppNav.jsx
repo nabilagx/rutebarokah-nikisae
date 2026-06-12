@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { Menu, Search, X } from "lucide-react";
+import BrandLogo from "./BrandLogo";
 
 const links = [
   ["Vendor", "/vendors"],
@@ -18,11 +19,7 @@ export default function AppNav() {
     <header className="sticky top-0 z-40 border-b border-[#064E3B]/10 bg-white/90 backdrop-blur-xl">
       <nav className="section-shell flex h-[76px] items-center justify-between">
         <Link href="/" className="flex items-center gap-3">
-          <span className="relative grid h-12 w-12 place-items-center rounded-full border-2 border-[#D6A84F]/55 bg-[#FFF8E7] shadow-soft">
-            <span className="grid h-8 w-8 place-items-center rounded-full bg-[#0B7A55] text-white">
-              <span className="h-4 w-3 rounded-b-full rounded-t-[10px] bg-[#D6A84F]" />
-            </span>
-          </span>
+          <BrandLogo className="h-12 w-12" />
           <span className="font-display text-[28px] font-bold leading-none text-[#064E3B]">
             RuteBarokah
           </span>

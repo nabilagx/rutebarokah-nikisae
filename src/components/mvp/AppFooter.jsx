@@ -1,6 +1,7 @@
 import React from "react";
 import Link from "next/link";
 import { Instagram, Mail, MessageCircle, Search, ShieldCheck, Star, Store, Youtube } from "lucide-react";
+import BrandLogo from "./BrandLogo";
 
 export default function AppFooter() {
   return (
@@ -8,9 +9,7 @@ export default function AppFooter() {
       <div className="section-shell grid gap-8 py-9 md:grid-cols-[1.2fr_0.8fr_0.8fr_0.8fr]">
         <div>
           <div className="flex items-center gap-3">
-            <span className="grid h-12 w-12 place-items-center rounded-full border-2 border-[#D6A84F] bg-[#FFF8E7]">
-              <span className="h-7 w-7 rounded-full bg-[#0B7A55]" />
-            </span>
+            <BrandLogo className="h-12 w-12" />
             <div>
               <p className="font-display text-2xl font-bold">RuteBarokah</p>
               <p className="-mt-1 text-sm font-bold text-[#D6A84F]">Platform</p>
@@ -51,4 +50,3 @@ function FooterLinks({ items }) {
     </div>
   );
 }
-

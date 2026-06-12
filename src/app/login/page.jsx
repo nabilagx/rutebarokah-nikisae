@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Eye, Lock, Mail, ShieldCheck, Star, Store, UserCheck } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
+import BrandLogo from "@/components/mvp/BrandLogo";
 
 const LOGIN_IMAGE = "https://upload.wikimedia.org/wikipedia/commons/thumb/b/be/Al_Qibla.jpg/1280px-Al_Qibla.jpg";
 
@@ -57,9 +58,7 @@ export default function LoginPage() {
           <form onSubmit={handleLogin} className="mx-auto w-full max-w-xl rounded-[34px] bg-white p-7 shadow-premium md:p-10">
             <div className="mb-8 text-center">
               <div className="mx-auto mb-4 flex items-center justify-center gap-3">
-                <span className="grid h-11 w-11 place-items-center rounded-full border-2 border-[#D6A84F]/65 bg-[#FFF8E7]">
-                  <span className="h-7 w-7 rounded-full bg-[#0B7A55]" />
-                </span>
+                <BrandLogo className="h-14 w-14" />
                 <span className="font-display text-3xl font-bold text-[#064E3B]">RuteBarokah</span>
               </div>
               <h1 className="font-display text-4xl font-bold text-[#064E3B] md:text-5xl">Masuk ke Akun Anda</h1>
