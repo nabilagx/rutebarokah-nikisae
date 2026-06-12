@@ -14,6 +14,7 @@ export default {
       fontFamily: {
         display: ["Georgia", "Cambria", "Times New Roman", "serif"],
         body: ["Inter", "ui-sans-serif", "system-ui", "sans-serif"],
+        sans: ["Inter", "ui-sans-serif", "system-ui", "sans-serif"],
       },
       boxShadow: {
         premium: "0 24px 70px rgba(13, 91, 71, 0.16)",

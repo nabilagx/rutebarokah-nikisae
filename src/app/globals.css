@@ -1,0 +1,94 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color: #1f2937;
+  background: #fffaf0;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(214, 168, 79, 0.14), transparent 28rem),
+    radial-gradient(circle at 90% 16%, rgba(6, 78, 59, 0.09), transparent 27rem),
+    linear-gradient(180deg, #fffaf0 0%, #ffffff 34%, #fff8e7 100%);
+}
+
+button,
+select,
+input,
+textarea {
+  font: inherit;
+}
+
+.shadow-premium {
+  box-shadow: 0 24px 70px rgba(6, 78, 59, 0.16);
+}
+
+.shadow-soft {
+  box-shadow: 0 14px 35px rgba(31, 41, 55, 0.08);
+}
+
+.field {
+  width: 100%;
+  border-radius: 18px;
+  border: 1px solid rgba(214, 168, 79, 0.25);
+  background: rgba(255, 255, 255, 0.92);
+  padding: 0.85rem 1rem;
+  color: #1f2937;
+  outline: none;
+}
+
+.field:focus {
+  border-color: #064e3b;
+  box-shadow: 0 0 0 3px rgba(6, 78, 59, 0.11);
+}
+
+.label {
+  display: grid;
+  gap: 0.45rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #064e3b;
+}
+
+.islamic-grid {
+  background-image:
+    linear-gradient(45deg, rgba(214, 168, 79, 0.14) 25%, transparent 25%),
+    linear-gradient(-45deg, rgba(214, 168, 79, 0.14) 25%, transparent 25%);
+  background-size: 18px 18px;
+}
+
+.section-shell {
+  width: min(1180px, calc(100% - 32px));
+  margin-inline: auto;
+}
+
+.ornament-bg {
+  background-image:
+    linear-gradient(30deg, rgba(214, 168, 79, 0.09) 1px, transparent 1px),
+    linear-gradient(120deg, rgba(214, 168, 79, 0.08) 1px, transparent 1px);
+  background-size: 34px 34px;
+}
+
+.route-dash {
+  stroke-dasharray: 9 10;
+  animation: routeFlow 3.5s linear infinite;
+}
+
+@keyframes routeFlow {
+  to {
+    stroke-dashoffset: -38;
+  }
+}

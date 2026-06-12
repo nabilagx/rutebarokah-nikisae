@@ -7,6 +7,7 @@ export default [
   {
     ignores: [
       "dist",
+      ".next",
       "node_modules",
       "vite.config.js.timestamp-*.mjs",
     ],
@@ -33,10 +34,7 @@ export default [
         "error",
         { varsIgnorePattern: "^[A-Z_]", argsIgnorePattern: "^[A-Z_]" },
       ],
-      "react-refresh/only-export-components": [
-        "warn",
-        { allowConstantExport: true },
-      ],
+      "react-refresh/only-export-components": "off",
     },
   },
 ];

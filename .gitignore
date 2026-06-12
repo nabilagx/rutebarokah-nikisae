@@ -1,6 +1,18 @@
-node_modules
-dist
+# dependencies
+node_modules/
+
+# next
+.next/
+out/
+
+# env
 .env
 .env.local
+.env.*.local
+
+# misc
+.DS_Store
 *.log
-vite.config.js.timestamp-*.mjs
+
+# vercel
+.vercel/
