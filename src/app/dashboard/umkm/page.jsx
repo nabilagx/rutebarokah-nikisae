@@ -240,9 +240,11 @@ export default function UmkmDashboardPage() {
         <p className="text-sm font-bold uppercase tracking-[0.22em] text-[#D6A84F]">Dashboard UMKM</p>
         <h1 className="mt-2 font-display text-4xl font-bold">{profile.business_name}</h1>
         <p className="mt-3 text-white/75">
-          Status approval: <span className="font-bold text-[#D6A84F]">{profile.status}</span> • Barokah Score: {profile.barokah_score || 0}/100
+          ID Pendaftaran: <span className="font-bold text-[#D6A84F]">{profile.registration_code || "-"}</span> • Status: <span className="font-bold text-[#D6A84F]">{profile.status}</span> • Barokah Score: {profile.barokah_score || 0}/100
         </p>
       </div>
+
+      <StatusNotice profile={profile} />
 
       <section className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
         <form onSubmit={handleSave} className="rounded-[22px] border border-[#064E3B]/10 bg-white p-5 shadow-soft md:p-6">
@@ -439,6 +441,41 @@ function Metric({ label, value }) {
       <p className="text-sm font-semibold text-[#1F2937]/55">{label}</p>
       <p className="mt-1 font-display text-2xl font-bold text-[#064E3B]">{value}</p>
     </div>
+  );
+}
+
+function StatusNotice({ profile }) {
+  const status = profile.status || "pending";
+  const content = {
+    pending: {
+      title: "Profil usaha Anda sedang menunggu verifikasi admin.",
+      body: "Anda tetap dapat melengkapi data profil, galeri, dan testimoni, tetapi belum tampil publik.",
+      className: "border-amber-200 bg-amber-50 text-amber-900",
+    },
+    approved: {
+      title: "Profil usaha Anda sudah disetujui.",
+      body: "Dashboard penuh aktif dan profil UMKM dapat tampil di katalog publik RuteBarokah.",
+      className: "border-emerald-200 bg-emerald-50 text-emerald-900",
+    },
+    rejected: {
+      title: "Pendaftaran belum disetujui.",
+      body: profile.verification_note || "Silakan periksa catatan admin atau hubungi RuteBarokah untuk tindak lanjut.",
+      className: "border-red-200 bg-red-50 text-red-900",
+    },
+  }[status] || {
+    title: "Status pendaftaran belum diketahui.",
+    body: "Hubungi admin RuteBarokah untuk bantuan.",
+    className: "border-[#064E3B]/15 bg-[#ECFDF5] text-[#064E3B]",
+  };
+
+  return (
+    <section className={`mb-6 rounded-[22px] border p-5 shadow-soft ${content.className}`}>
+      <h2 className="font-display text-2xl font-bold">{content.title}</h2>
+      <p className="mt-2 text-sm font-semibold leading-6">{content.body}</p>
+      {profile.verification_note && status !== "rejected" && (
+        <p className="mt-3 text-sm leading-6"><span className="font-black">Catatan admin:</span> {profile.verification_note}</p>
+      )}
+    </section>
   );
 }
 

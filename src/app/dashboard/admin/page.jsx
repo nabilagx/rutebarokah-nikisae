@@ -677,6 +677,28 @@ function AdminUmkmCard({ item, onUpdate }) {
   const [score, setScore] = useState(item.barokah_score || 0);
   const [badges, setBadges] = useState(splitBadges(item.badges).join(", "));
   const [featured, setFeatured] = useState(Boolean(item.is_featured));
+  const [verificationNote, setVerificationNote] = useState(item.verification_note || "");
+
+  function approveUmkm() {
+    const normalizedScore = Number(score || 0);
+    const parsedBadges = splitBadges(badges);
+    onUpdate(item.id, {
+      status: "approved",
+      approved_at: new Date().toISOString(),
+      verification_note: verificationNote || null,
+      barokah_score: normalizedScore > 0 ? normalizedScore : 85,
+      badges: parsedBadges.length ? parsedBadges : ["Terkurasi", "Menunggu Review Lanjutan"],
+      is_featured: featured,
+    });
+  }
+
+  function rejectUmkm() {
+    onUpdate(item.id, {
+      status: "rejected",
+      rejected_at: new Date().toISOString(),
+      verification_note: verificationNote || "Pendaftaran belum dapat disetujui. Silakan lengkapi atau perbaiki data usaha.",
+    });
+  }
 
   return (
     <div className="rounded-3xl border border-[#D6A84F]/20 bg-[#FFF8E7] p-4">
@@ -687,8 +709,8 @@ function AdminUmkmCard({ item, onUpdate }) {
           <p className="mt-2 text-sm leading-6 text-[#1F2937]/65">{item.description}</p>
         </div>
         <div className="flex gap-2">
-          <button type="button" onClick={() => onUpdate(item.id, { status: "approved", barokah_score: Number(score), badges: splitBadges(badges), is_featured: featured })} className="rounded-xl bg-[#064E3B] px-4 py-2 text-sm font-bold text-white">Approve</button>
-          <button type="button" onClick={() => onUpdate(item.id, { status: "rejected" })} className="rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white">Reject</button>
+          <button type="button" onClick={approveUmkm} className="rounded-xl bg-[#064E3B] px-4 py-2 text-sm font-bold text-white">Approve</button>
+          <button type="button" onClick={rejectUmkm} className="rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white">Reject</button>
         </div>
       </div>
       <div className="mt-4 grid gap-3 md:grid-cols-[120px_1fr_auto]">
@@ -699,6 +721,16 @@ function AdminUmkmCard({ item, onUpdate }) {
           Featured
         </label>
       </div>
+      <label className="label mt-3">
+        Catatan Verifikasi
+        <textarea
+          value={verificationNote}
+          onChange={(event) => setVerificationNote(event.target.value)}
+          rows={3}
+          className="field resize-none"
+          placeholder="Catatan untuk UMKM, terutama jika ditolak."
+        />
+      </label>
     </div>
   );
 }
