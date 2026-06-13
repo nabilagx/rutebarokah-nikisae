@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabaseClient";
 import LoadingState from "@/components/mvp/LoadingState.jsx";
 import ProtectedNotice from "@/components/mvp/ProtectedNotice.jsx";
 import { categories, locations } from "@/lib/constants";
+import { getAuthProfile } from "@/lib/authProfile";
 import { formatRupiah } from "@/lib/formatters";
 import { uploadUmkmGalleryImage } from "@/lib/uploadUmkmImage";
 
@@ -24,8 +25,7 @@ export default function UmkmDashboardPage() {
 
   useEffect(() => {
     async function init() {
-      const { data: authData } = await supabase.auth.getUser();
-      const currentUser = authData?.user;
+      const { user: currentUser, role } = await getAuthProfile();
       setUser(currentUser || null);
 
       if (!currentUser) {
@@ -34,21 +34,15 @@ export default function UmkmDashboardPage() {
         return;
       }
 
-      const { data: accountProfile } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", currentUser.id)
-        .maybeSingle();
+      setAccountRole(role || "");
 
-      setAccountRole(accountProfile?.role || "");
-
-      if (accountProfile?.role === "admin") {
+      if (role === "admin") {
         router.replace("/dashboard/admin");
         setChecking(false);
         return;
       }
 
-      if (accountProfile?.role !== "umkm") {
+      if (role !== "umkm") {
         router.replace("/login");
         setChecking(false);
         return;

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { LayoutDashboard, LogOut, Menu, Search, X } from "lucide-react";
 import BrandLogo from "./BrandLogo";
 import { supabase } from "@/lib/supabaseClient";
+import { getAuthProfile, getDashboardTarget } from "@/lib/authProfile";
 
 const links = [
   ["Vendor", "/vendors"],
@@ -18,26 +19,18 @@ export default function AppNav() {
   const [open, setOpen] = useState(false);
   const [sessionUser, setSessionUser] = useState(null);
   const [role, setRole] = useState("");
+  const [roleLoading, setRoleLoading] = useState(true);
 
   useEffect(() => {
     let active = true;
 
     async function loadAuth() {
-      const { data } = await supabase.auth.getSession();
-      const user = data.session?.user || null;
+      setRoleLoading(true);
+      const { user, role: profileRole } = await getAuthProfile();
       if (!active) return;
-      setSessionUser(user);
-
-      if (user?.id) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", user.id)
-          .maybeSingle();
-        if (active) setRole(profile?.role || "");
-      } else {
-        setRole("");
-      }
+      setSessionUser(user || null);
+      setRole(profileRole || "");
+      setRoleLoading(false);
     }
 
     loadAuth();
@@ -49,7 +42,7 @@ export default function AppNav() {
     };
   }, []);
 
-  const dashboardHref = role === "admin" ? "/dashboard/admin" : "/dashboard/umkm";
+  const dashboardHref = getDashboardTarget(role);
 
   async function handleLogout() {
     await supabase.auth.signOut();
@@ -76,7 +69,7 @@ export default function AppNav() {
             </Link>
           ))}
           {sessionUser ? (
-            <AuthControls user={sessionUser} role={role} dashboardHref={dashboardHref} onLogout={handleLogout} />
+            <AuthControls user={sessionUser} role={role} roleLoading={roleLoading} dashboardHref={dashboardHref} onLogout={handleLogout} />
           ) : (
             <>
               <Link href="/login" className="text-sm font-semibold text-[#1F2937]/72 hover:text-[#064E3B]">
@@ -116,9 +109,9 @@ export default function AppNav() {
             {sessionUser ? (
               <div className="grid gap-2 rounded-2xl bg-[#FFF8E7] p-3">
                 <p className="text-sm font-bold text-[#064E3B]">{sessionUser.email}</p>
-                <RoleBadge role={role} />
+                <RoleBadge role={role} loading={roleLoading} />
                 <Link
-                  href={dashboardHref}
+                  href={dashboardHref || "/login"}
                   onClick={() => setOpen(false)}
                   className="rounded-xl bg-[#064E3B] px-4 py-3 text-center font-bold text-white"
                 >
@@ -145,14 +138,14 @@ export default function AppNav() {
   );
 }
 
-function AuthControls({ user, role, dashboardHref, onLogout }) {
+function AuthControls({ user, role, roleLoading, dashboardHref, onLogout }) {
   return (
     <div className="flex items-center gap-3">
       <div className="max-w-[190px] text-right">
         <p className="truncate text-xs font-bold text-[#1F2937]/70">{user.email}</p>
-        <RoleBadge role={role} />
+        <RoleBadge role={role} loading={roleLoading} />
       </div>
-      <Link href={dashboardHref} className="inline-flex items-center gap-2 rounded-xl bg-[#064E3B] px-4 py-2.5 text-sm font-bold text-white shadow-soft">
+      <Link href={dashboardHref || "/login"} className="inline-flex items-center gap-2 rounded-xl bg-[#064E3B] px-4 py-2.5 text-sm font-bold text-white shadow-soft">
         <LayoutDashboard size={16} />
         Dashboard
       </Link>
@@ -164,10 +157,10 @@ function AuthControls({ user, role, dashboardHref, onLogout }) {
   );
 }
 
-function RoleBadge({ role }) {
+function RoleBadge({ role, loading }) {
   return (
     <span className="mt-1 inline-flex rounded-full bg-[#ECFDF5] px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.12em] text-[#064E3B]">
-      {role === "admin" ? "Admin" : role === "umkm" ? "UMKM" : "Akun"}
+      {loading ? "Memuat role..." : role === "admin" ? "Admin" : role === "umkm" ? "UMKM" : "Akun"}
     </span>
   );
 }

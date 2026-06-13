@@ -16,6 +16,7 @@ import { supabase } from "@/lib/supabaseClient";
 import LoadingState from "@/components/mvp/LoadingState.jsx";
 import ProtectedNotice from "@/components/mvp/ProtectedNotice.jsx";
 import { categories, locations } from "@/lib/constants";
+import { getAuthProfile } from "@/lib/authProfile";
 import { normalizeWhatsapp, splitBadges, whatsappUrl } from "@/lib/formatters";
 
 const requestStatuses = ["new", "contacted", "matched", "closed", "cancelled"];
@@ -42,8 +43,7 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     async function init() {
-      const { data: authData } = await supabase.auth.getUser();
-      const user = authData?.user;
+      const { user, role } = await getAuthProfile();
 
       if (!user) {
         router.replace("/login");
@@ -53,19 +53,13 @@ export default function AdminDashboardPage() {
 
       setAdminEmail(user.email || "");
 
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .single();
-
-      if (profile?.role === "umkm") {
+      if (role === "umkm") {
         router.replace("/dashboard/umkm");
         setChecking(false);
         return;
       }
 
-      if (profile?.role !== "admin") {
+      if (role !== "admin") {
         router.replace("/login");
         setChecking(false);
         return;

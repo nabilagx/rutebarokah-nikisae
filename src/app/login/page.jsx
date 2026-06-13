@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Eye, Lock, Mail, ShieldCheck, Star, Store, UserCheck } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import BrandLogo from "@/components/mvp/BrandLogo";
+import { getAuthProfile, getDashboardTarget } from "@/lib/authProfile";
 
 const LOGIN_IMAGE = "https://upload.wikimedia.org/wikipedia/commons/thumb/b/be/Al_Qibla.jpg/1280px-Al_Qibla.jpg";
 
@@ -15,6 +16,8 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [currentUser, setCurrentUser] = useState(null);
   const [currentRole, setCurrentRole] = useState("");
+  const [currentRoleError, setCurrentRoleError] = useState(null);
+  const [roleLoading, setRoleLoading] = useState(true);
   const [remember, setRemember] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -22,24 +25,18 @@ export default function LoginPage() {
 
   useEffect(() => {
     async function checkExistingSession() {
-      const { data } = await supabase.auth.getSession();
-      const user = data.session?.user;
-      if (!user) return;
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .maybeSingle();
-
-      setCurrentUser(user);
-      setCurrentRole(profile?.role || "");
+      setRoleLoading(true);
+      const { user, role, error: profileError } = await getAuthProfile();
+      setCurrentUser(user || null);
+      setCurrentRole(role || "");
+      setCurrentRoleError(profileError || null);
+      setRoleLoading(false);
     }
 
     checkExistingSession();
   }, []);
 
-  const currentDashboard = currentRole === "admin" ? "/dashboard/admin" : "/dashboard/umkm";
+  const currentDashboard = getDashboardTarget(currentRole);
 
   async function handleLogin(event) {
     event.preventDefault();
@@ -57,28 +54,22 @@ export default function LoginPage() {
       return;
     }
 
-    const userId = data.user?.id;
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", userId)
-      .maybeSingle();
+    const { profile, role, dashboardTarget, error: profileError } = await getAuthProfile();
 
-    if (profileError || !profile?.role) {
+    if (profileError || !role || !dashboardTarget) {
       console.error("Login profile lookup error:", profileError);
       setError("Profil akun belum tersedia. Silakan hubungi admin.");
       setLoading(false);
       return;
     }
 
-    const target = profile.role === "admin" ? "/dashboard/admin" : "/dashboard/umkm";
     console.log("Login debug:", {
       email: data.user?.email,
-      role: profile.role,
-      redirectTarget: target,
+      role: profile?.role,
+      redirectTarget: dashboardTarget,
     });
 
-    router.push(target);
+    router.push(dashboardTarget);
     router.refresh();
   }
 
@@ -86,7 +77,18 @@ export default function LoginPage() {
     await supabase.auth.signOut();
     setCurrentUser(null);
     setCurrentRole("");
+    setCurrentRoleError(null);
+    setRoleLoading(false);
     router.refresh();
+  }
+
+  function handleDashboardClick() {
+    if (!currentDashboard) {
+      setError("Role akun belum tersedia. Silakan hubungi admin.");
+      return;
+    }
+
+    router.push(currentDashboard);
   }
 
   return (
@@ -115,11 +117,13 @@ export default function LoginPage() {
               <div className="mb-6 rounded-3xl border border-[#D6A84F]/25 bg-[#FFF8E7] p-5">
                 <p className="text-sm font-black uppercase tracking-[0.16em] text-[#D6A84F]">Session Aktif</p>
                 <h2 className="mt-2 text-xl font-black text-[#064E3B]">Anda sudah login sebagai {currentUser.email}</h2>
-                <p className="mt-1 text-sm font-semibold text-[#1F2937]/62">Role: {currentRole || "belum terbaca"}</p>
+                <p className="mt-1 text-sm font-semibold text-[#1F2937]/62">
+                  Role: {formatRoleLabel(currentRole, roleLoading, currentRoleError)}
+                </p>
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  <Link href={currentDashboard} className="rounded-xl bg-[#064E3B] px-5 py-3 text-center font-bold text-white">
+                  <button type="button" onClick={handleDashboardClick} className="rounded-xl bg-[#064E3B] px-5 py-3 text-center font-bold text-white">
                     Masuk ke Dashboard
-                  </Link>
+                  </button>
                   <button type="button" onClick={handleLogout} className="rounded-xl border border-red-200 bg-red-50 px-5 py-3 font-bold text-red-700">
                     Logout dan ganti akun
                   </button>
@@ -255,4 +259,12 @@ function Trust({ icon: Icon, title, desc, gold }) {
       <span className="text-left text-sm font-bold leading-5">{title}<br />{desc}</span>
     </div>
   );
+}
+
+function formatRoleLabel(role, loading, roleError) {
+  if (loading) return "Memuat role...";
+  if (role === "admin") return "Admin";
+  if (role === "umkm") return "UMKM";
+  if (roleError) return "belum terbaca";
+  return "Role akun belum tersedia";
 }
