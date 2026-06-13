@@ -34,6 +34,8 @@ const steps = [
   ["Verifikasi", "Review & kirim"],
 ];
 
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export default function JoinUmkmPage() {
   const [form, setForm] = useState(initialForm);
   const [file, setFile] = useState(null);
@@ -58,7 +60,8 @@ export default function JoinUmkmPage() {
     setError("");
 
     try {
-      if (!form.owner_email.includes("@")) throw new Error("Email pemilik wajib valid.");
+      const cleanEmail = form.owner_email.trim().toLowerCase();
+      if (!emailRegex.test(cleanEmail)) throw new Error("Email pemilik wajib valid.");
       if (form.password.length < 8) throw new Error("Password minimal 8 karakter.");
       if (form.password !== form.confirm_password) throw new Error("Password dan konfirmasi password harus sama.");
 
@@ -69,7 +72,7 @@ export default function JoinUmkmPage() {
       }
 
       const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-        email: form.owner_email,
+        email: cleanEmail,
         password: form.password,
         options: {
           data: {
@@ -79,23 +82,28 @@ export default function JoinUmkmPage() {
         },
       });
 
-      if (signUpError) throw signUpError;
+      if (signUpError) {
+        console.error("Supabase signUp error:", signUpError);
+        throw signUpError;
+      }
       const userId = signUpData.user?.id;
       if (!userId) throw new Error("Akun berhasil diproses, tetapi user ID belum tersedia. Coba login atau hubungi admin.");
 
       const { error: profileError } = await supabase.from("profiles").upsert({
         id: userId,
         full_name: form.owner_name,
-        email: form.owner_email,
+        email: cleanEmail,
         role: "umkm",
       });
 
-      if (profileError) throw profileError;
+      if (profileError) {
+        console.error("Optional profiles upsert ditolak, lanjut karena trigger Supabase menangani profiles:", profileError);
+      }
 
       const registrationCode = generateRegistrationCode();
       const payload = {
         user_id: userId,
-        owner_email: form.owner_email,
+        owner_email: cleanEmail,
         registration_code: registrationCode,
         business_name: form.business_name,
         owner_name: form.owner_name,
@@ -116,7 +124,10 @@ export default function JoinUmkmPage() {
       };
 
       const { error: insertError } = await supabase.from("umkm_profiles").insert(payload);
-      if (insertError) throw insertError;
+      if (insertError) {
+        console.error("Supabase umkm_profiles insert error:", insertError);
+        throw insertError;
+      }
 
       setSuccessData({ registration_code: registrationCode, business_name: form.business_name });
       setMessage("Pendaftaran UMKM berhasil dikirim.");
@@ -124,6 +135,7 @@ export default function JoinUmkmPage() {
       setFile(null);
       event.target.reset();
     } catch (submitError) {
+      console.error("Submit daftar UMKM gagal:", submitError);
       setError(submitError.message || "Gagal mengirim pendaftaran UMKM.");
     } finally {
       setSubmitting(false);
