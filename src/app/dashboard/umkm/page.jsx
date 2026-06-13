@@ -6,12 +6,16 @@ import LoadingState from "@/components/mvp/LoadingState.jsx";
 import ProtectedNotice from "@/components/mvp/ProtectedNotice.jsx";
 import { categories, locations } from "@/lib/constants";
 import { formatRupiah } from "@/lib/formatters";
+import { uploadUmkmGalleryImage } from "@/lib/uploadUmkmImage";
 
 export default function UmkmDashboardPage() {
   const [checking, setChecking] = useState(true);
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [leads, setLeads] = useState([]);
+  const [gallery, setGallery] = useState([]);
+  const [testimonials, setTestimonials] = useState([]);
+  const [uploadingGallery, setUploadingGallery] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -54,6 +58,22 @@ export default function UmkmDashboardPage() {
         }
 
         setLeads(leadData || []);
+
+        const [galleryResult, testimonialResult] = await Promise.all([
+          supabase
+            .from("umkm_gallery")
+            .select("*")
+            .eq("umkm_id", umkmData.id)
+            .order("created_at", { ascending: false }),
+          supabase
+            .from("umkm_testimonials")
+            .select("*")
+            .eq("umkm_id", umkmData.id)
+            .order("created_at", { ascending: false }),
+        ]);
+
+        setGallery(galleryResult.data || []);
+        setTestimonials(testimonialResult.data || []);
       }
 
       setChecking(false);
@@ -125,6 +145,95 @@ export default function UmkmDashboardPage() {
     setMessage("Profil usaha berhasil diperbarui.");
   }
 
+  async function refreshAssets() {
+    if (!profile?.id) return;
+    const [galleryResult, testimonialResult] = await Promise.all([
+      supabase
+        .from("umkm_gallery")
+        .select("*")
+        .eq("umkm_id", profile.id)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("umkm_testimonials")
+        .select("*")
+        .eq("umkm_id", profile.id)
+        .order("created_at", { ascending: false }),
+    ]);
+    setGallery(galleryResult.data || []);
+    setTestimonials(testimonialResult.data || []);
+  }
+
+  async function handleGallerySubmit(event) {
+    event.preventDefault();
+    setMessage("");
+    setError("");
+    setUploadingGallery(true);
+
+    const formData = new FormData(event.currentTarget);
+    const file = formData.get("image");
+
+    try {
+      if (!file || !file.name) throw new Error("Pilih gambar galeri terlebih dahulu.");
+      const imageUrl = await uploadUmkmGalleryImage(file, profile.id);
+      const { error: insertError } = await supabase.from("umkm_gallery").insert({
+        umkm_id: profile.id,
+        image_url: imageUrl,
+        caption: formData.get("caption") || null,
+        sort_order: Number(formData.get("sort_order") || 0),
+        is_active: true,
+        status: "pending",
+        created_by: user.id,
+      });
+
+      if (insertError) throw insertError;
+      event.currentTarget.reset();
+      setMessage("Galeri berhasil diajukan dan menunggu tinjauan admin.");
+      await refreshAssets();
+    } catch (submitError) {
+      setError(submitError.message || "Upload galeri gagal.");
+    } finally {
+      setUploadingGallery(false);
+    }
+  }
+
+  async function handleTestimonialSubmit(event) {
+    event.preventDefault();
+    setMessage("");
+    setError("");
+    const formData = new FormData(event.currentTarget);
+
+    const { error: insertError } = await supabase.from("umkm_testimonials").insert({
+      umkm_id: profile.id,
+      customer_name: formData.get("customer_name"),
+      customer_type: formData.get("customer_type"),
+      rating: Number(formData.get("rating") || 5),
+      testimonial: formData.get("testimonial"),
+      status: "pending",
+      created_by: user.id,
+    });
+
+    if (insertError) {
+      setError(insertError.message);
+      return;
+    }
+
+    event.currentTarget.reset();
+    setMessage("Testimoni berhasil diajukan dan menunggu tinjauan admin.");
+    await refreshAssets();
+  }
+
+  async function deleteAsset(table, id) {
+    setMessage("");
+    setError("");
+    const { error: deleteError } = await supabase.from(table).delete().eq("id", id);
+    if (deleteError) {
+      setError(deleteError.message);
+      return;
+    }
+    setMessage("Data berhasil dihapus.");
+    await refreshAssets();
+  }
+
   return (
     <main className="mx-auto w-[min(1120px,calc(100%-32px))] py-10">
       <div className="mb-8 overflow-hidden rounded-[24px] bg-[#064E3B] p-7 text-white shadow-premium islamic-grid">
@@ -193,8 +302,113 @@ export default function UmkmDashboardPage() {
           </div>
         </div>
       </section>
+
+      <section className="mt-8 rounded-[22px] border border-[#D6A84F]/25 bg-[#FFF8E7] p-5 text-sm font-semibold text-[#064E3B] shadow-soft">
+        Galeri dan testimoni yang diajukan UMKM akan ditinjau admin sebelum tampil publik.
+      </section>
+
+      <section className="mt-8 grid gap-6 lg:grid-cols-2">
+        <GalleryManager
+          items={gallery}
+          uploading={uploadingGallery}
+          onSubmit={handleGallerySubmit}
+          onDelete={(id) => deleteAsset("umkm_gallery", id)}
+        />
+        <TestimonialManager
+          items={testimonials}
+          onSubmit={handleTestimonialSubmit}
+          onDelete={(id) => deleteAsset("umkm_testimonials", id)}
+        />
+      </section>
     </main>
   );
+}
+
+function GalleryManager({ items, uploading, onSubmit, onDelete }) {
+  return (
+    <div className="rounded-[22px] border border-[#064E3B]/10 bg-white p-5 shadow-soft">
+      <h2 className="font-display text-2xl font-bold text-[#064E3B]">Galeri</h2>
+      <form onSubmit={onSubmit} className="mt-5 grid gap-3">
+        <Input label="Upload Gambar" name="image" type="file" accept="image/*" />
+        <Input label="Caption" name="caption" placeholder="Contoh: Paket nasi box jamaah" />
+        <Input label="Urutan Tampil" name="sort_order" type="number" defaultValue="0" />
+        <button type="submit" disabled={uploading} className="rounded-xl bg-[#064E3B] px-5 py-3 font-bold text-white disabled:opacity-60">
+          {uploading ? "Mengupload..." : "Ajukan Galeri"}
+        </button>
+      </form>
+      <div className="mt-5 grid gap-3">
+        {items.length ? items.map((item) => (
+          <AssetCard key={item.id} status={item.status} canDelete={canDeleteAsset(item.status)} onDelete={() => onDelete(item.id)}>
+            <img src={item.image_url} alt={item.caption || "Galeri UMKM"} className="h-32 w-full rounded-xl object-cover" />
+            <p className="mt-2 text-sm font-semibold text-[#1F2937]/72">{item.caption || "Tanpa caption"}</p>
+            <p className="mt-1 text-xs text-[#1F2937]/55">Urutan: {item.sort_order || 0}</p>
+          </AssetCard>
+        )) : <EmptyPanel text="Belum ada galeri." />}
+      </div>
+    </div>
+  );
+}
+
+function TestimonialManager({ items, onSubmit, onDelete }) {
+  return (
+    <div className="rounded-[22px] border border-[#064E3B]/10 bg-white p-5 shadow-soft">
+      <h2 className="font-display text-2xl font-bold text-[#064E3B]">Testimoni</h2>
+      <form onSubmit={onSubmit} className="mt-5 grid gap-3">
+        <Input label="Nama Pelanggan" name="customer_name" required />
+        <Input label="Tipe Pelanggan" name="customer_type" placeholder="Travel, KBIH, Jamaah" />
+        <Input label="Rating" name="rating" type="number" min="1" max="5" defaultValue="5" required />
+        <label className="label">
+          Testimoni
+          <textarea name="testimonial" rows={4} className="field resize-none" required />
+        </label>
+        <button type="submit" className="rounded-xl bg-[#064E3B] px-5 py-3 font-bold text-white">
+          Ajukan Testimoni
+        </button>
+      </form>
+      <div className="mt-5 grid gap-3">
+        {items.length ? items.map((item) => (
+          <AssetCard key={item.id} status={item.status} canDelete={canDeleteAsset(item.status)} onDelete={() => onDelete(item.id)}>
+            <p className="font-black text-[#064E3B]">{item.customer_name}</p>
+            <p className="text-sm text-[#1F2937]/55">{item.customer_type || "Pelanggan"} • {item.rating || 0}/5</p>
+            <p className="mt-2 text-sm leading-6 text-[#1F2937]/70">{item.testimonial}</p>
+          </AssetCard>
+        )) : <EmptyPanel text="Belum ada testimoni." />}
+      </div>
+    </div>
+  );
+}
+
+function AssetCard({ status, canDelete, onDelete, children }) {
+  return (
+    <article className="rounded-2xl bg-[#FFF8E7] p-4">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <StatusBadge status={status} />
+        {canDelete && (
+          <button type="button" onClick={onDelete} className="rounded-lg bg-red-50 px-3 py-1.5 text-xs font-black text-red-700">
+            Hapus
+          </button>
+        )}
+      </div>
+      {children}
+    </article>
+  );
+}
+
+function StatusBadge({ status }) {
+  const styles = {
+    pending: "bg-amber-100 text-amber-800",
+    approved: "bg-emerald-100 text-emerald-800",
+    rejected: "bg-red-100 text-red-800",
+  };
+  return <span className={`rounded-full px-3 py-1 text-xs font-black ${styles[status] || styles.pending}`}>{status || "pending"}</span>;
+}
+
+function EmptyPanel({ text }) {
+  return <p className="rounded-2xl border border-dashed border-[#064E3B]/15 bg-[#ECFDF5] p-5 text-center text-sm font-semibold text-[#064E3B]">{text}</p>;
+}
+
+function canDeleteAsset(status) {
+  return status === "pending" || status === "rejected";
 }
 
 function Input({ label, className = "", ...props }) {

@@ -12,6 +12,8 @@ import { openVendorWhatsapp } from "@/lib/leadTracking";
 
 export default function VendorDetailPage({ params }) {
   const [vendor, setVendor] = useState(null);
+  const [gallery, setGallery] = useState([]);
+  const [testimonials, setTestimonials] = useState([]);
   const [loading, setLoading] = useState(true);
   const [leadLoading, setLeadLoading] = useState(false);
   const [error, setError] = useState("");
@@ -28,6 +30,28 @@ export default function VendorDetailPage({ params }) {
 
       if (fetchError) setError(fetchError.message);
       setVendor(data || null);
+
+      if (data?.id) {
+        const [galleryResult, testimonialResult] = await Promise.all([
+          supabase
+            .from("umkm_gallery")
+            .select("*")
+            .eq("umkm_id", data.id)
+            .eq("status", "approved")
+            .eq("is_active", true)
+            .order("sort_order", { ascending: true }),
+          supabase
+            .from("umkm_testimonials")
+            .select("*")
+            .eq("umkm_id", data.id)
+            .eq("status", "approved")
+            .order("created_at", { ascending: false }),
+        ]);
+
+        setGallery(galleryResult.data || []);
+        setTestimonials(testimonialResult.data || []);
+      }
+
       setLoading(false);
     }
 
@@ -116,7 +140,70 @@ export default function VendorDetailPage({ params }) {
           </aside>
         </div>
       </article>
+
+      <GallerySection items={gallery} />
+      <TestimonialsSection items={testimonials} />
     </main>
+  );
+}
+
+function GallerySection({ items }) {
+  return (
+    <section className="mt-8 rounded-[28px] border border-[#064E3B]/10 bg-white p-5 shadow-soft md:p-7">
+      <div className="mb-5">
+        <p className="text-sm font-black uppercase tracking-[0.18em] text-[#D6A84F]">Galeri Layanan</p>
+        <h2 className="mt-1 font-display text-3xl font-bold text-[#064E3B]">Dokumentasi layanan UMKM</h2>
+      </div>
+      {items.length ? (
+        <div className="flex snap-x gap-4 overflow-x-auto pb-2 md:grid md:grid-cols-3 md:overflow-visible">
+          {items.map((item) => (
+            <figure key={item.id} className="min-w-[260px] snap-start overflow-hidden rounded-2xl border border-[#064E3B]/10 bg-[#FFF8E7] md:min-w-0">
+              <img src={item.image_url} alt={item.caption || "Galeri layanan UMKM"} className="h-52 w-full object-cover" />
+              {item.caption && <figcaption className="p-4 text-sm font-semibold text-[#1F2937]/72">{item.caption}</figcaption>}
+            </figure>
+          ))}
+        </div>
+      ) : (
+        <EmptyMini title="Galeri layanan belum tersedia." />
+      )}
+    </section>
+  );
+}
+
+function TestimonialsSection({ items }) {
+  return (
+    <section className="mt-8 rounded-[28px] border border-[#064E3B]/10 bg-white p-5 shadow-soft md:p-7">
+      <div className="mb-5">
+        <p className="text-sm font-black uppercase tracking-[0.18em] text-[#D6A84F]">Testimoni Pelanggan</p>
+        <h2 className="mt-1 font-display text-3xl font-bold text-[#064E3B]">Ulasan yang sudah diverifikasi</h2>
+      </div>
+      {items.length ? (
+        <div className="grid gap-4 md:grid-cols-2">
+          {items.map((item) => (
+            <article key={item.id} className="rounded-2xl bg-[#FFF8E7] p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="font-black text-[#064E3B]">{item.customer_name || "Pelanggan"}</h3>
+                  <p className="text-sm text-[#1F2937]/60">{item.customer_type || "Jamaah"}</p>
+                </div>
+                <p className="font-black text-[#D6A84F]">{"★".repeat(Number(item.rating || 0))}</p>
+              </div>
+              <p className="mt-4 text-sm leading-7 text-[#1F2937]/72">{item.testimonial}</p>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <EmptyMini title="Testimoni pelanggan belum tersedia." />
+      )}
+    </section>
+  );
+}
+
+function EmptyMini({ title }) {
+  return (
+    <div className="rounded-2xl border border-dashed border-[#064E3B]/18 bg-[#ECFDF5] p-6 text-center font-semibold text-[#064E3B]">
+      {title}
+    </div>
   );
 }
 
