@@ -37,11 +37,22 @@ export default function UmkmDashboardPage() {
       setProfile(umkmData || null);
 
       if (umkmData?.id) {
-        const { data: leadData } = await supabase
+        let { data: leadData, error: leadError } = await supabase
           .from("leads")
           .select("*")
           .eq("umkm_id", umkmData.id)
-          .order("created_at", { ascending: false });
+          .order("clicked_at", { ascending: false });
+
+        if (leadError) {
+          console.error("Gagal mengambil leads berdasarkan clicked_at:", leadError);
+          const fallback = await supabase
+            .from("leads")
+            .select("*")
+            .eq("umkm_id", umkmData.id)
+            .order("created_at", { ascending: false });
+          leadData = fallback.data || [];
+        }
+
         setLeads(leadData || []);
       }
 
@@ -167,11 +178,16 @@ export default function UmkmDashboardPage() {
             <div className="mt-5 grid gap-3">
               {leads.length ? leads.map((lead) => (
                 <div key={lead.id} className="rounded-2xl bg-[#FFF8E7] p-4">
-                  <p className="font-bold text-[#064E3B]">{lead.source || "Lead WhatsApp"}</p>
-                  <p className="mt-1 text-sm text-[#1F2937]/65">{lead.message || lead.whatsapp || "-"}</p>
+                  <p className="font-bold text-[#064E3B]">{formatDateTime(lead.clicked_at || lead.created_at)}</p>
+                  <div className="mt-2 grid gap-2 text-sm text-[#1F2937]/68 sm:grid-cols-2">
+                    <p><span className="font-bold text-[#1F2937]">Source:</span> {lead.source || "-"}</p>
+                    <p><span className="font-bold text-[#1F2937]">User Type:</span> {lead.user_type || "-"}</p>
+                  </div>
                 </div>
               )) : (
-                <p className="text-sm text-[#1F2937]/60">Belum ada leads.</p>
+                <div className="rounded-2xl border border-dashed border-[#064E3B]/20 bg-[#ECFDF5] p-5 text-center">
+                  <p className="font-bold text-[#064E3B]">Belum ada lead masuk.</p>
+                </div>
               )}
             </div>
           </div>
@@ -210,4 +226,15 @@ function Metric({ label, value }) {
       <p className="mt-1 font-display text-2xl font-bold text-[#064E3B]">{value}</p>
     </div>
   );
+}
+
+function formatDateTime(value) {
+  if (!value) return "-";
+  return new Intl.DateTimeFormat("id-ID", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
 }

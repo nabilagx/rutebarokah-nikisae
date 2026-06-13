@@ -1,11 +1,22 @@
-import React from "react";
+"use client";
+
+import React, { useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Heart, MapPin, PackageCheck, Star } from "lucide-react";
+import { ArrowRight, Heart, MapPin, MessageCircle, PackageCheck, Star } from "lucide-react";
 import VendorImage from "./VendorImage.jsx";
 import { formatRupiah, splitBadges } from "@/lib/formatters";
+import { openVendorWhatsapp } from "@/lib/leadTracking";
 
 export default function VendorCard({ vendor }) {
+  const [openingWhatsapp, setOpeningWhatsapp] = useState(false);
   const badges = splitBadges(vendor.badges).slice(0, 3);
+
+  async function handleWhatsapp() {
+    setOpeningWhatsapp(true);
+    const message = `Assalamualaikum, saya tertarik dengan layanan ${vendor.business_name} di RuteBarokah. Mohon info paket dan ketersediaannya.`;
+    await openVendorWhatsapp(vendor, message);
+    setOpeningWhatsapp(false);
+  }
 
   return (
     <article className="group overflow-hidden rounded-[18px] border border-[#064E3B]/10 bg-white shadow-soft transition hover:-translate-y-1 hover:shadow-premium">
@@ -44,12 +55,23 @@ export default function VendorCard({ vendor }) {
             </span>
           ))}
         </div>
-        <Link
-          href={`/vendors/${vendor.id}`}
-          className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[#064E3B]/18 bg-white px-5 py-3 font-bold text-[#08734F] transition hover:bg-[#064E3B] hover:text-white"
-        >
-          Lihat Detail <ArrowRight size={17} />
-        </Link>
+        <div className="mt-5 grid gap-2">
+          <button
+            type="button"
+            onClick={handleWhatsapp}
+            disabled={openingWhatsapp || !vendor.whatsapp}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#064E3B] px-5 py-3 font-bold text-white transition hover:bg-[#043c2e] disabled:cursor-not-allowed disabled:opacity-55"
+          >
+            <MessageCircle size={17} />
+            {openingWhatsapp ? "Membuka WhatsApp..." : "Hubungi WhatsApp"}
+          </button>
+          <Link
+            href={`/vendors/${vendor.id}`}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[#064E3B]/18 bg-white px-5 py-3 font-bold text-[#08734F] transition hover:bg-[#064E3B] hover:text-white"
+          >
+            Lihat Detail <ArrowRight size={17} />
+          </Link>
+        </div>
       </div>
     </article>
   );

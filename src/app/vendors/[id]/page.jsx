@@ -4,10 +4,11 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, MapPin, MessageCircle, Star, UsersRound } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
-import { formatRupiah, splitBadges, whatsappUrl } from "@/lib/formatters";
+import { formatRupiah, splitBadges } from "@/lib/formatters";
 import LoadingState from "@/components/mvp/LoadingState.jsx";
 import EmptyState from "@/components/mvp/EmptyState.jsx";
 import VendorImage from "@/components/mvp/VendorImage.jsx";
+import { openVendorWhatsapp } from "@/lib/leadTracking";
 
 export default function VendorDetailPage({ params }) {
   const [vendor, setVendor] = useState(null);
@@ -37,15 +38,9 @@ export default function VendorDetailPage({ params }) {
     if (!vendor?.whatsapp) return;
 
     setLeadLoading(true);
-    await supabase.from("leads").insert({
-      umkm_id: vendor.id,
-      source: "vendor_detail_whatsapp",
-      whatsapp: vendor.whatsapp,
-      message: `Lead dari halaman detail ${vendor.business_name}`,
-    });
-
     const message = `Assalamualaikum, saya tertarik dengan layanan ${vendor.business_name} di RuteBarokah. Mohon info paket dan ketersediaannya.`;
-    window.location.href = whatsappUrl(vendor.whatsapp, message);
+    await openVendorWhatsapp(vendor, message);
+    setLeadLoading(false);
   }
 
   if (loading) return <LoadingState label="Memuat detail UMKM..." />;
@@ -136,4 +131,3 @@ function Info({ icon: Icon, label, value, gold }) {
     </div>
   );
 }
-
