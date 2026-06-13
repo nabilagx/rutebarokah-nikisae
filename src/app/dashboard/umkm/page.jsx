@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import LoadingState from "@/components/mvp/LoadingState.jsx";
 import ProtectedNotice from "@/components/mvp/ProtectedNotice.jsx";
@@ -9,8 +10,10 @@ import { formatRupiah } from "@/lib/formatters";
 import { uploadUmkmGalleryImage } from "@/lib/uploadUmkmImage";
 
 export default function UmkmDashboardPage() {
+  const router = useRouter();
   const [checking, setChecking] = useState(true);
   const [user, setUser] = useState(null);
+  const [accountRole, setAccountRole] = useState("");
   const [profile, setProfile] = useState(null);
   const [leads, setLeads] = useState([]);
   const [gallery, setGallery] = useState([]);
@@ -26,6 +29,27 @@ export default function UmkmDashboardPage() {
       setUser(currentUser || null);
 
       if (!currentUser) {
+        router.replace("/login");
+        setChecking(false);
+        return;
+      }
+
+      const { data: accountProfile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", currentUser.id)
+        .maybeSingle();
+
+      setAccountRole(accountProfile?.role || "");
+
+      if (accountProfile?.role === "admin") {
+        router.replace("/dashboard/admin");
+        setChecking(false);
+        return;
+      }
+
+      if (accountProfile?.role !== "umkm") {
+        router.replace("/login");
         setChecking(false);
         return;
       }
@@ -80,7 +104,13 @@ export default function UmkmDashboardPage() {
     }
 
     init();
-  }, []);
+  }, [router]);
+
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    router.push("/login");
+    router.refresh();
+  }
 
   const formState = useMemo(() => ({
     business_name: profile?.business_name || "",
@@ -237,11 +267,19 @@ export default function UmkmDashboardPage() {
   return (
     <main className="mx-auto w-[min(1120px,calc(100%-32px))] py-10">
       <div className="mb-8 overflow-hidden rounded-[24px] bg-[#064E3B] p-7 text-white shadow-premium islamic-grid">
-        <p className="text-sm font-bold uppercase tracking-[0.22em] text-[#D6A84F]">Dashboard UMKM</p>
-        <h1 className="mt-2 font-display text-4xl font-bold">{profile.business_name}</h1>
-        <p className="mt-3 text-white/75">
-          ID Pendaftaran: <span className="font-bold text-[#D6A84F]">{profile.registration_code || "-"}</span> • Status: <span className="font-bold text-[#D6A84F]">{profile.status}</span> • Barokah Score: {profile.barokah_score || 0}/100
-        </p>
+        <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
+          <div>
+            <p className="text-sm font-bold uppercase tracking-[0.22em] text-[#D6A84F]">Dashboard UMKM</p>
+            <h1 className="mt-2 font-display text-4xl font-bold">{profile.business_name || user?.email}</h1>
+            <p className="mt-3 text-white/75">
+              ID Pendaftaran: <span className="font-bold text-[#D6A84F]">{profile.registration_code || "-"}</span> • Status: <span className="font-bold text-[#D6A84F]">{profile.status}</span> • Role: {accountRole || "umkm"} • Barokah Score: {profile.barokah_score || 0}/100
+            </p>
+            <p className="mt-2 text-sm font-semibold text-white/75">{user?.email}</p>
+          </div>
+          <button type="button" onClick={handleLogout} className="rounded-xl border border-red-200/50 bg-red-50 px-5 py-3 text-sm font-black text-red-700">
+            Logout
+          </button>
+        </div>
       </div>
 
       <StatusNotice profile={profile} />

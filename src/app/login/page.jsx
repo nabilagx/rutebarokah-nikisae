@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Eye, Lock, Mail, ShieldCheck, Star, Store, UserCheck } from "lucide-react";
@@ -13,10 +13,33 @@ export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [currentUser, setCurrentUser] = useState(null);
+  const [currentRole, setCurrentRole] = useState("");
   const [remember, setRemember] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    async function checkExistingSession() {
+      const { data } = await supabase.auth.getSession();
+      const user = data.session?.user;
+      if (!user) return;
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      setCurrentUser(user);
+      setCurrentRole(profile?.role || "");
+    }
+
+    checkExistingSession();
+  }, []);
+
+  const currentDashboard = currentRole === "admin" ? "/dashboard/admin" : "/dashboard/umkm";
 
   async function handleLogin(event) {
     event.preventDefault();
@@ -35,17 +58,35 @@ export default function LoginPage() {
     }
 
     const userId = data.user?.id;
-    const { data: profile } = await supabase
+    const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("role")
       .eq("id", userId)
-      .single();
+      .maybeSingle();
 
-    if (profile?.role === "admin") {
-      router.push("/dashboard/admin");
-    } else {
-      router.push("/dashboard/umkm");
+    if (profileError || !profile?.role) {
+      console.error("Login profile lookup error:", profileError);
+      setError("Profil akun belum tersedia. Silakan hubungi admin.");
+      setLoading(false);
+      return;
     }
+
+    const target = profile.role === "admin" ? "/dashboard/admin" : "/dashboard/umkm";
+    console.log("Login debug:", {
+      email: data.user?.email,
+      role: profile.role,
+      redirectTarget: target,
+    });
+
+    router.push(target);
+    router.refresh();
+  }
+
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    setCurrentUser(null);
+    setCurrentRole("");
+    router.refresh();
   }
 
   return (
@@ -65,7 +106,26 @@ export default function LoginPage() {
               <p className="mx-auto mt-3 max-w-sm leading-7 text-[#1F2937]/62">
                 Akses vendor halal terpercaya untuk kebutuhan perjalanan ibadah.
               </p>
+              <p className="mx-auto mt-3 max-w-md rounded-2xl bg-[#FFF8E7] p-3 text-sm font-semibold leading-6 text-[#064E3B]">
+                Jika Anda sedang masuk dengan akun lain, silakan logout terlebih dahulu.
+              </p>
             </div>
+
+            {currentUser && (
+              <div className="mb-6 rounded-3xl border border-[#D6A84F]/25 bg-[#FFF8E7] p-5">
+                <p className="text-sm font-black uppercase tracking-[0.16em] text-[#D6A84F]">Session Aktif</p>
+                <h2 className="mt-2 text-xl font-black text-[#064E3B]">Anda sudah login sebagai {currentUser.email}</h2>
+                <p className="mt-1 text-sm font-semibold text-[#1F2937]/62">Role: {currentRole || "belum terbaca"}</p>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <Link href={currentDashboard} className="rounded-xl bg-[#064E3B] px-5 py-3 text-center font-bold text-white">
+                    Masuk ke Dashboard
+                  </Link>
+                  <button type="button" onClick={handleLogout} className="rounded-xl border border-red-200 bg-red-50 px-5 py-3 font-bold text-red-700">
+                    Logout dan ganti akun
+                  </button>
+                </div>
+              </div>
+            )}
 
             <label className="label">
               Email

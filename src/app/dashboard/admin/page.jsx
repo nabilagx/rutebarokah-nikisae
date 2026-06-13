@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   CalendarDays,
   ExternalLink,
@@ -25,8 +26,10 @@ const requestSorts = ["Request terbaru", "Tanggal acara terdekat", "Pax terbesar
 const moderationStatuses = ["all", "pending", "approved", "rejected"];
 
 export default function AdminDashboardPage() {
+  const router = useRouter();
   const [checking, setChecking] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [adminEmail, setAdminEmail] = useState("");
   const [pendingUmkm, setPendingUmkm] = useState([]);
   const [vendors, setVendors] = useState([]);
   const [requests, setRequests] = useState([]);
@@ -43,9 +46,12 @@ export default function AdminDashboardPage() {
       const user = authData?.user;
 
       if (!user) {
+        router.replace("/login");
         setChecking(false);
         return;
       }
+
+      setAdminEmail(user.email || "");
 
       const { data: profile } = await supabase
         .from("profiles")
@@ -53,7 +59,14 @@ export default function AdminDashboardPage() {
         .eq("id", user.id)
         .single();
 
+      if (profile?.role === "umkm") {
+        router.replace("/dashboard/umkm");
+        setChecking(false);
+        return;
+      }
+
       if (profile?.role !== "admin") {
+        router.replace("/login");
         setChecking(false);
         return;
       }
@@ -64,7 +77,15 @@ export default function AdminDashboardPage() {
     }
 
     init();
-  }, []);
+    // loadDashboardData is intentionally defined as a stable page-level loader and called only during the initial auth guard.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router]);
+
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    router.push("/login");
+    router.refresh();
+  }
 
   async function loadDashboardData() {
     const [umkmResult, vendorResult, requestResult, galleryResult, testimonialResult] = await Promise.all([
@@ -220,9 +241,17 @@ export default function AdminDashboardPage() {
   return (
     <main className="mx-auto w-[min(1280px,calc(100%-32px))] py-10">
       <div className="mb-8 overflow-hidden rounded-[24px] bg-[#064E3B] p-7 text-white shadow-premium islamic-grid">
-        <p className="text-sm font-bold uppercase tracking-[0.22em] text-[#D6A84F]">Dashboard Admin</p>
-        <h1 className="mt-2 font-display text-4xl font-bold">Operasional matching RuteBarokah.</h1>
-        <p className="mt-3 text-white/70">Pantau lead, kelola request vendor, validasi UMKM, dan moderasi galeri/testimoni.</p>
+        <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
+          <div>
+            <p className="text-sm font-bold uppercase tracking-[0.22em] text-[#D6A84F]">Admin RuteBarokah</p>
+            <h1 className="mt-2 font-display text-4xl font-bold">Operasional matching RuteBarokah.</h1>
+            <p className="mt-3 text-white/70">Pantau lead, kelola request vendor, validasi UMKM, dan moderasi galeri/testimoni.</p>
+            <p className="mt-3 text-sm font-semibold text-white/80">{adminEmail}</p>
+          </div>
+          <button type="button" onClick={handleLogout} className="rounded-xl border border-red-200/50 bg-red-50 px-5 py-3 text-sm font-black text-red-700">
+            Logout
+          </button>
+        </div>
       </div>
 
       {message && (
