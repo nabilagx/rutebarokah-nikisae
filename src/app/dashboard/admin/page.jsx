@@ -428,7 +428,7 @@ function AllUmkmPanel({ items, onDetail, onUpdate, onAccountHelp }) {
         <div>
           <h2 className="font-display text-3xl font-bold text-[#064E3B]">Semua UMKM</h2>
           <p className="mt-1 text-sm text-[#1F2937]/60">Kelola seluruh UMKM, status akun, kurasi, featured, dan public listing.</p>
-          <p className="mt-2 text-sm font-semibold text-[#064E3B]">Catatan: "Belum Ada Akun" bukan error. Itu berarti UMKM sudah mendaftar, tetapi belum dibuatkan akun dashboard.</p>
+          <p className="mt-2 text-sm font-semibold text-[#064E3B]">Catatan: "Belum Ada Akun" bukan error. Ini biasanya hanya untuk data lama, dummy, atau import manual.</p>
         </div>
         <span className="rounded-full bg-[#ECFDF5] px-4 py-2 text-sm font-black text-[#064E3B]">{filtered.length} UMKM</span>
       </div>
@@ -1129,7 +1129,7 @@ function UmkmDetailModal({ item, onClose, onUpdate, onAccountHelp }) {
               <p className="rounded-2xl bg-white p-3 text-xs font-semibold leading-5 text-[#1F2937]/65">
                 {item.user_id
                   ? "Akun dashboard UMKM sudah terhubung."
-                  : "Email pendaftar sudah tersimpan, tetapi akun dashboard UMKM belum dibuat atau belum dihubungkan."}
+                  : "Email pendaftar sudah tersimpan, tetapi akun dashboard UMKM belum terhubung. Ini biasanya data lama, dummy, atau import manual."}
               </p>
               <p className="text-xs font-semibold text-[#1F2937]/60">User ID: {item.user_id || "-"}</p>
             </div>
@@ -1355,7 +1355,7 @@ function AccountBadge({ connected }) {
   ) : (
     <span
       className="inline-flex rounded-full bg-amber-100 px-3 py-1 text-xs font-black text-amber-800"
-      title="Belum Ada Akun bukan error. UMKM sudah mendaftar, tetapi akun dashboard belum dibuat atau belum dihubungkan."
+      title="Belum Ada Akun bukan error. Ini biasanya hanya untuk data lama, dummy, atau import manual."
     >
       Belum Ada Akun
     </span>
@@ -1374,7 +1374,7 @@ function AccountHelpModal({ item, onClose }) {
         </div>
         <div className="mt-5 grid gap-3 text-sm leading-7 text-[#1F2937]/72">
           <p className="rounded-2xl bg-[#ECFDF5] p-4 font-semibold text-[#064E3B]">
-            Untuk MVP, pendaftaran publik tidak membuat akun Auth otomatis. Buat user di Supabase Authentication dengan email pendaftar, lalu hubungkan `user_id` ke UMKM ini.
+            Untuk data lama/dummy yang belum memiliki `user_id`, buat user di Supabase Authentication dengan email pendaftar, lalu hubungkan `user_id` ke UMKM ini.
           </p>
           <p>
             Jika nanti dibuat otomatis, prosesnya harus melalui server route/admin API yang aman. Jangan gunakan service_role key di frontend.

@@ -12,6 +12,8 @@ const initialForm = {
   business_name: "",
   owner_name: "",
   owner_email: "",
+  password: "",
+  confirm_password: "",
   category: "Katering",
   subcategory: "",
   location: "Jakarta",
@@ -25,11 +27,11 @@ const initialForm = {
 };
 
 const steps = [
-  ["Informasi Dasar", "Data dasar UMKM Anda"],
-  ["Informasi Usaha", "Detail usaha dan layanan"],
-  ["Lokasi & Layanan", "Area dan kapasitas"],
-  ["Dokumen & Legalitas", "Foto dan pendukung"],
-  ["Verifikasi", "Review & kirim"],
+  { id: 1, title: "Informasi Dasar", subtitle: "Data dasar UMKM Anda" },
+  { id: 2, title: "Informasi Usaha", subtitle: "Detail usaha dan layanan" },
+  { id: 3, title: "Lokasi & Layanan", subtitle: "Area dan kapasitas" },
+  { id: 4, title: "Dokumen & Legalitas", subtitle: "Foto dan pendukung" },
+  { id: 5, title: "Verifikasi", subtitle: "Review & kirim" },
 ];
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -37,18 +39,35 @@ const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export default function JoinUmkmPage() {
   const [form, setForm] = useState(initialForm);
   const [file, setFile] = useState(null);
+  const [currentStep, setCurrentStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
   const [successData, setSuccessData] = useState(null);
+  const [copiedId, setCopiedId] = useState(false);
   const [statusForm, setStatusForm] = useState({ registration_code: "", whatsapp: "" });
   const [statusResult, setStatusResult] = useState(null);
   const [statusError, setStatusError] = useState("");
   const [checkingStatus, setCheckingStatus] = useState(false);
+  const [profileInsertFailedAfterSignup, setProfileInsertFailedAfterSignup] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
   function updateField(event) {
     const { name, value } = event.target;
     setForm((current) => ({ ...current, [name]: value }));
+  }
+
+  function goNext() {
+    setCurrentStep((step) => Math.min(5, step + 1));
+  }
+
+  function goBack() {
+    setCurrentStep((step) => Math.max(1, step - 1));
+  }
+
+  async function copyRegistrationId() {
+    if (!successData?.registration_code) return;
+    await navigator.clipboard.writeText(successData.registration_code);
+    setCopiedId(true);
   }
 
   async function handleSubmit(event) {
@@ -58,8 +77,14 @@ export default function JoinUmkmPage() {
     setError("");
 
     try {
+      if (profileInsertFailedAfterSignup) {
+        throw new Error("Akun berhasil dibuat, tetapi profil UMKM gagal disimpan. Silakan login atau hubungi admin.");
+      }
+
       const cleanEmail = form.owner_email.trim().toLowerCase();
       if (!emailRegex.test(cleanEmail)) throw new Error("Email pendaftar wajib valid.");
+      if (form.password.length < 8) throw new Error("Password minimal 8 karakter.");
+      if (form.password !== form.confirm_password) throw new Error("Password dan konfirmasi password harus sama.");
 
       let imageUrl = form.image_url.trim();
 
@@ -67,9 +92,28 @@ export default function JoinUmkmPage() {
         imageUrl = await uploadUmkmImage(file);
       }
 
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+        email: cleanEmail,
+        password: form.password,
+        options: {
+          data: {
+            full_name: form.owner_name,
+            role: "umkm",
+          },
+        },
+      });
+
+      if (signUpError) {
+        console.error("Supabase signUp error:", signUpError);
+        throw signUpError;
+      }
+
+      const userId = signUpData.user?.id;
+      if (!userId) throw new Error("Akun berhasil dibuat, tetapi user ID belum tersedia. Silakan login atau hubungi admin.");
+
       const registrationCode = generateRegistrationCode();
       const payload = {
-        user_id: null,
+        user_id: userId,
         owner_email: cleanEmail,
         registration_code: registrationCode,
         business_name: form.business_name,
@@ -93,11 +137,13 @@ export default function JoinUmkmPage() {
       const { error: insertError } = await supabase.from("umkm_profiles").insert(payload);
       if (insertError) {
         console.error("Supabase umkm_profiles insert error:", insertError);
-        throw insertError;
+        setProfileInsertFailedAfterSignup(true);
+        throw new Error("Akun berhasil dibuat, tetapi profil UMKM gagal disimpan. Silakan login atau hubungi admin.");
       }
 
-      setSuccessData({ registration_code: registrationCode, business_name: form.business_name });
-      setMessage("Pendaftaran UMKM berhasil dikirim. Data Anda akan diverifikasi admin.");
+      setSuccessData({ registration_code: registrationCode, business_name: form.business_name, owner_email: cleanEmail });
+      setMessage("Pendaftaran UMKM berhasil dikirim. Akun dashboard UMKM Anda sudah dibuat.");
+      setProfileInsertFailedAfterSignup(false);
       setForm(initialForm);
       setFile(null);
       event.target.reset();
@@ -151,16 +197,29 @@ export default function JoinUmkmPage() {
             </span>
             <h1 className="mt-5 font-display text-4xl font-bold text-[#064E3B]">Pendaftaran UMKM Berhasil Dikirim</h1>
             <p className="mx-auto mt-3 max-w-xl leading-7 text-[#1F2937]/68">
-              Pendaftaran UMKM berhasil dikirim. Data Anda akan diverifikasi admin.
+              Akun dashboard UMKM Anda sudah dibuat. Profil usaha akan tampil publik setelah diverifikasi admin.
             </p>
-            <div className="mt-6 rounded-3xl bg-[#FFF8E7] p-6">
+            <div className="mt-6 rounded-3xl bg-[#FFF8E7] p-5 md:p-6">
               <p className="text-sm font-black uppercase tracking-[0.18em] text-[#D6A84F]">ID Pendaftaran</p>
-              <p className="mt-2 font-display text-4xl font-bold text-[#064E3B]">{successData.registration_code}</p>
-              <p className="mt-2 text-sm font-semibold text-[#1F2937]/62">Simpan ID pendaftaran ini untuk mengecek status verifikasi UMKM Anda.</p>
+              <p
+                className="mx-auto mt-3 max-w-full font-display text-3xl font-bold leading-tight text-[#064E3B] sm:text-4xl"
+                style={{ wordBreak: "break-word", overflowWrap: "anywhere" }}
+              >
+                {successData.registration_code}
+              </p>
+              <div className="mt-4 grid gap-3 rounded-2xl bg-white p-4 text-left sm:grid-cols-2">
+                <MiniInfo label="Email Login" value={successData.owner_email} />
+                <MiniInfo label="Status" value="Menunggu Verifikasi" />
+              </div>
+              <p className="mt-3 text-sm font-semibold text-[#1F2937]/62">Simpan ID pendaftaran ini untuk mengecek status verifikasi UMKM Anda.</p>
+              <button type="button" onClick={copyRegistrationId} className="mt-4 rounded-xl bg-[#064E3B] px-5 py-3 text-sm font-black text-white">
+                Salin ID
+              </button>
+              {copiedId && <p className="mt-2 text-sm font-bold text-[#064E3B]">ID berhasil disalin</p>}
             </div>
             <div className="mt-7 grid gap-3 sm:grid-cols-3">
-              <button type="button" onClick={() => setSuccessData(null)} className="rounded-xl bg-[#064E3B] px-5 py-4 font-bold text-white">Cek Status Pendaftaran</button>
-              <Link href="/" className="rounded-xl border border-[#064E3B]/15 px-5 py-4 font-bold text-[#064E3B]">Kembali ke Beranda</Link>
+              <Link href="/login" className="rounded-xl bg-[#064E3B] px-5 py-4 font-bold text-white">Login Dashboard UMKM</Link>
+              <button type="button" onClick={() => setSuccessData(null)} className="rounded-xl border border-[#064E3B]/15 px-5 py-4 font-bold text-[#064E3B]">Cek Status Pendaftaran</button>
               <Link href="/vendors" className="rounded-xl border border-[#064E3B]/15 px-5 py-4 font-bold text-[#064E3B]">Lihat Katalog</Link>
             </div>
           </div>
@@ -174,54 +233,68 @@ export default function JoinUmkmPage() {
       <RegisterHero />
 
       <section className="section-shell -mt-16 pb-16">
-        <Stepper />
+        <Stepper currentStep={currentStep} />
         <div className="mt-7 grid gap-6 lg:grid-cols-[1fr_360px]">
           <form onSubmit={handleSubmit} className="rounded-[22px] border border-[#064E3B]/10 bg-white p-6 shadow-premium md:p-8">
             <div className="mb-7">
-              <h2 className="text-2xl font-black text-[#1F2937]">Informasi Dasar</h2>
-              <p className="mt-1 text-[#1F2937]/62">Lengkapi informasi dasar UMKM Anda</p>
+              <p className="text-sm font-black uppercase tracking-[0.18em] text-[#D6A84F]">Step {currentStep} dari 5</p>
+              <h2 className="mt-2 text-2xl font-black text-[#1F2937]">{steps[currentStep - 1].title}</h2>
+              <p className="mt-1 text-[#1F2937]/62">{steps[currentStep - 1].subtitle}</p>
             </div>
-            <div className="grid gap-5 md:grid-cols-2">
-              <Input label="Nama UMKM / Brand" name="business_name" value={form.business_name} onChange={updateField} required placeholder="Contoh: Dapur Barokah Catering" />
-              <Input label="Nama Pemilik" name="owner_name" value={form.owner_name} onChange={updateField} required placeholder="Masukkan nama pemilik usaha" />
-              <Input label="Email Pendaftar" name="owner_email" value={form.owner_email} onChange={updateField} type="email" required placeholder="nama@email.com" />
-              <div className="rounded-2xl bg-[#ECFDF5] p-4 text-sm font-semibold leading-6 text-[#064E3B] md:col-span-2">
-                Pendaftaran tidak membuat akun login otomatis. Email ini disimpan sebagai kontak pendaftar; akun dashboard UMKM akan dibuat atau dihubungkan oleh admin setelah verifikasi.
-              </div>
-              <label className="label">
-                Nomor WhatsApp
-                <div className="grid grid-cols-[88px_1fr] gap-3">
-                  <span className="field flex items-center justify-center rounded-xl py-3 font-bold">+62</span>
-                  <input className="field rounded-xl py-3" name="whatsapp" value={form.whatsapp} onChange={updateField} required placeholder="812-3456-7890" />
+            {currentStep === 1 && (
+              <div className="grid gap-5 md:grid-cols-2">
+                <Input label="Nama Pemilik" name="owner_name" value={form.owner_name} onChange={updateField} required placeholder="Masukkan nama pemilik usaha" />
+                <Input label="Email Pendaftar / Email Login" name="owner_email" value={form.owner_email} onChange={updateField} type="email" required placeholder="nama@email.com" />
+                <Input label="Password" name="password" value={form.password} onChange={updateField} type="password" required minLength={8} placeholder="Minimal 8 karakter" />
+                <Input label="Konfirmasi Password" name="confirm_password" value={form.confirm_password} onChange={updateField} type="password" required minLength={8} placeholder="Ulangi password" />
+                <div className="rounded-2xl bg-[#ECFDF5] p-4 text-sm font-semibold leading-6 text-[#064E3B] md:col-span-2">
+                  Email dan password digunakan untuk login dashboard UMKM. Profil usaha tetap menunggu verifikasi admin sebelum tampil publik.
                 </div>
-              </label>
-              <Input label="Subkategori" name="subcategory" value={form.subcategory} onChange={updateField} placeholder="Nasi box, snack box, laundry" />
-              <Select label="Kategori Usaha" name="category" value={form.category} onChange={updateField} options={categories} className="md:col-span-2" />
-              <label className="label md:col-span-2">
-                Deskripsi Singkat
-                <textarea
-                  name="description"
-                  value={form.description}
-                  onChange={updateField}
-                  rows={4}
-                  className="field resize-none rounded-xl"
-                  required
-                  placeholder="Ceritakan secara singkat tentang usaha Anda, produk/layanan yang ditawarkan, dan keunggulan Anda..."
-                />
-                <span className="text-xs font-medium text-[#1F2937]/50">Minimal 30 karakter</span>
-              </label>
-            </div>
+              </div>
+            )}
 
-            <div className="mt-8 border-t border-[#064E3B]/10 pt-7">
-              <h2 className="text-2xl font-black text-[#1F2937]">Lokasi & Layanan</h2>
-              <div className="mt-5 grid gap-5 md:grid-cols-2">
+            {currentStep === 2 && (
+              <div className="grid gap-5 md:grid-cols-2">
+                <Input label="Nama UMKM / Brand" name="business_name" value={form.business_name} onChange={updateField} required placeholder="Contoh: Dapur Barokah Catering" />
+                <Select label="Kategori Usaha" name="category" value={form.category} onChange={updateField} options={categories} />
+                <Input label="Subkategori" name="subcategory" value={form.subcategory} onChange={updateField} placeholder="Nasi box, snack box, laundry" />
+                <label className="label">
+                  Nomor WhatsApp
+                  <div className="grid grid-cols-[88px_1fr] gap-3">
+                    <span className="field flex items-center justify-center rounded-xl py-3 font-bold">+62</span>
+                    <input className="field rounded-xl py-3" name="whatsapp" value={form.whatsapp} onChange={updateField} required placeholder="812-3456-7890" />
+                  </div>
+                </label>
+                <label className="label md:col-span-2">
+                  Deskripsi Singkat
+                  <textarea
+                    name="description"
+                    value={form.description}
+                    onChange={updateField}
+                    rows={4}
+                    className="field resize-none rounded-xl"
+                    required
+                    placeholder="Ceritakan secara singkat tentang usaha Anda, produk/layanan yang ditawarkan, dan keunggulan Anda..."
+                  />
+                  <span className="text-xs font-medium text-[#1F2937]/50">Minimal 30 karakter</span>
+                </label>
+              </div>
+            )}
+
+            {currentStep === 3 && (
+              <div className="grid gap-5 md:grid-cols-2">
                 <Select label="Lokasi Utama" name="location" value={form.location} onChange={updateField} options={locations} />
                 <Input label="Alamat Lengkap" name="address" value={form.address} onChange={updateField} placeholder="Alamat usaha atau area layanan" />
                 <Input label="Kapasitas Minimal" name="capacity_min" value={form.capacity_min} onChange={updateField} type="number" placeholder="50" />
                 <Input label="Kapasitas Maksimal" name="capacity_max" value={form.capacity_max} onChange={updateField} type="number" placeholder="300" />
                 <Input label="Harga Mulai" name="price_start" value={form.price_start} onChange={updateField} type="number" placeholder="18000" />
+              </div>
+            )}
+
+            {currentStep === 4 && (
+              <div className="grid gap-5">
                 <Input label="URL Gambar Manual" name="image_url" value={form.image_url} onChange={updateField} placeholder="https://..." />
-                <label className="label md:col-span-2">
+                <label className="label">
                   Upload Foto/Logo UMKM
                   <input type="file" accept="image/*" onChange={(event) => setFile(event.target.files?.[0] || null)} className="field rounded-xl" />
                   <span className="text-xs font-medium text-[#1F2937]/55">
@@ -229,23 +302,31 @@ export default function JoinUmkmPage() {
                   </span>
                 </label>
               </div>
-            </div>
+            )}
+
+            {currentStep === 5 && <ReviewStep form={form} file={file} />}
 
             {message && <Alert type="success" message={message} />}
             {error && <Alert type="error" message={error} />}
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <button type="button" className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#064E3B]/12 px-6 py-4 font-bold text-[#1F2937]">
+              <button type="button" onClick={goBack} disabled={currentStep === 1} className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#064E3B]/12 px-6 py-4 font-bold text-[#1F2937] disabled:cursor-not-allowed disabled:opacity-45">
                 <ArrowLeft size={18} /> Kembali
               </button>
-              <button
-                type="submit"
-                disabled={submitting}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#08734F] px-8 py-4 font-bold text-white shadow-soft transition hover:bg-[#064E3B] disabled:opacity-60"
-              >
-                {submitting ? "Mengirim Data..." : "Simpan & Kirim"}
-                <ArrowRight size={18} />
-              </button>
+              {currentStep < 5 ? (
+                <button type="button" onClick={goNext} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#08734F] px-8 py-4 font-bold text-white shadow-soft transition hover:bg-[#064E3B]">
+                  Lanjut <ArrowRight size={18} />
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#08734F] px-8 py-4 font-bold text-white shadow-soft transition hover:bg-[#064E3B] disabled:opacity-60"
+                >
+                  {submitting ? "Mengirim Data..." : "Simpan & Kirim"}
+                  <ArrowRight size={18} />
+                </button>
+              )}
             </div>
           </form>
 
@@ -302,8 +383,8 @@ function StatusCheckSection({ form, setForm, result, error, loading, onSubmit })
 
 function StatusResultCard({ result }) {
   const texts = {
-    pending: "Pendaftaran Anda sedang menunggu verifikasi admin.",
-    approved: "Pendaftaran Anda sudah disetujui dan dapat tampil di katalog RuteBarokah.",
+    pending: "Pendaftaran Anda sedang menunggu verifikasi admin. Anda tetap dapat login ke dashboard untuk melihat status.",
+    approved: "Pendaftaran Anda sudah disetujui dan profil usaha tampil di katalog RuteBarokah.",
     rejected: "Pendaftaran belum dapat disetujui. Silakan lihat catatan admin.",
   };
 
@@ -320,7 +401,7 @@ function StatusResultCard({ result }) {
       <p className="mt-4 leading-7 text-[#1F2937]/70">{texts[result.status] || texts.pending}</p>
       <div className="mt-4 grid gap-3 md:grid-cols-4">
         <MiniInfo label="ID Pendaftaran" value={result.registration_code} />
-        <MiniInfo label="Email Pendaftar" value={result.owner_email || "-"} />
+        <MiniInfo label="Email Login" value={result.owner_email || "-"} />
         <MiniInfo label="Tanggal Daftar" value={formatDate(result.created_at)} />
         <MiniInfo label="Catatan Verifikasi" value={result.verification_note || "-"} />
       </div>
@@ -362,24 +443,65 @@ function RegisterHero() {
   );
 }
 
-function Stepper() {
+function Stepper({ currentStep }) {
   return (
     <div className="relative z-10 rounded-[18px] bg-white p-6 shadow-premium">
-      <div className="grid gap-5 md:grid-cols-5">
-        {steps.map(([title, desc], index) => {
-          const active = index === 0;
+      <p className="mb-4 text-sm font-black text-[#064E3B] md:hidden">Step {currentStep} dari {steps.length}: {steps[currentStep - 1].title}</p>
+      <div className="flex gap-4 overflow-x-auto pb-1 md:grid md:grid-cols-5 md:overflow-visible">
+        {steps.map((step) => {
+          const status = getStepStatus(step.id, currentStep);
+          const completed = status === "completed";
+          const active = status === "active";
           return (
-            <div key={title} className="flex items-center gap-4">
-              <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-full font-black ${active ? "bg-[#08734F] text-white" : "bg-[#E5E7EB] text-[#1F2937]"}`}>
-                {index + 1}
+            <div key={step.id} className="flex min-w-[210px] items-center gap-4 md:min-w-0">
+              <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-full font-black ${active || completed ? "bg-[#08734F] text-white" : "bg-[#E5E7EB] text-[#1F2937]/70"}`}>
+                {completed ? <CheckCircle2 size={20} /> : step.id}
               </span>
               <span>
-                <strong className={active ? "text-[#08734F]" : "text-[#1F2937]"}>{title}</strong>
-                <span className="block text-xs text-[#1F2937]/58">{desc}</span>
+                <strong className={active || completed ? "text-[#08734F]" : "text-[#1F2937]/65"}>{step.title}</strong>
+                <span className="block text-xs text-[#1F2937]/58">{step.subtitle}</span>
               </span>
             </div>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+function getStepStatus(stepId, currentStep) {
+  if (stepId < currentStep) return "completed";
+  if (stepId === currentStep) return "active";
+  return "upcoming";
+}
+
+function ReviewStep({ form, file }) {
+  const items = [
+    ["Nama UMKM", form.business_name],
+    ["Nama Pemilik", form.owner_name],
+    ["Email Login", form.owner_email],
+    ["Kategori", form.category],
+    ["Subkategori", form.subcategory],
+    ["Lokasi", form.location],
+    ["WhatsApp", form.whatsapp],
+    ["Kapasitas", `${form.capacity_min || "-"} - ${form.capacity_max || "-"} pax`],
+    ["Harga Mulai", form.price_start ? `Rp ${Number(form.price_start).toLocaleString("id-ID")}` : "-"],
+    ["Gambar", file?.name || form.image_url || "Belum diisi"],
+  ];
+
+  return (
+    <div className="grid gap-4">
+      <div className="rounded-2xl bg-[#ECFDF5] p-4 text-sm font-semibold leading-6 text-[#064E3B]">
+        Periksa kembali data Anda. Setelah dikirim, akun dashboard UMKM akan dibuat dan profil usaha menunggu verifikasi admin.
+      </div>
+      <div className="grid gap-3 md:grid-cols-2">
+        {items.map(([label, value]) => (
+          <MiniInfo key={label} label={label} value={value || "-"} />
+        ))}
+      </div>
+      <div className="rounded-2xl bg-[#FFF8E7] p-4">
+        <p className="text-xs font-black uppercase tracking-[0.13em] text-[#064E3B]/55">Deskripsi</p>
+        <p className="mt-1 whitespace-pre-line text-sm font-semibold leading-6 text-[#1F2937]/70">{form.description || "-"}</p>
       </div>
     </div>
   );

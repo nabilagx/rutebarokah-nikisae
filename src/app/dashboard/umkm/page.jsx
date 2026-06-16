@@ -857,8 +857,8 @@ function StatusNotice({ profile }) {
   const status = profile.status || "pending";
   const content = {
     pending: {
-      title: "Profil usaha Anda sedang menunggu verifikasi admin.",
-      body: "Anda tetap dapat melengkapi data profil, galeri, dan testimoni, tetapi belum tampil publik.",
+      title: "Profil usaha Anda sedang menunggu verifikasi admin dan belum tampil publik.",
+      body: "Anda tetap dapat login ke dashboard untuk melihat status dan melengkapi data usaha.",
       className: "border-amber-200 bg-amber-50 text-amber-900",
     },
     approved: {
