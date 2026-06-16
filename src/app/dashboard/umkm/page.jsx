@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Eye, ImagePlus, LayoutDashboard, LogOut, Pencil, Trash2 } from "lucide-react";
+import { ArrowRight, CheckCircle2, Eye, ImagePlus, LayoutDashboard, LogOut, Pencil, Trash2 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import LoadingState from "@/components/mvp/LoadingState.jsx";
 import ProtectedNotice from "@/components/mvp/ProtectedNotice.jsx";
@@ -158,8 +158,8 @@ export default function UmkmDashboardPage() {
   if (!profile) {
     return (
       <ProtectedNotice
-        title="Profil UMKM belum ditemukan"
-        description="Akun ini belum terhubung dengan data UMKM. Daftarkan usaha melalui form daftar UMKM saat sudah login."
+        title="Akun UMKM belum terhubung"
+        description="Akun UMKM belum terhubung dengan profil usaha. Silakan hubungi admin."
       />
     );
   }
@@ -266,6 +266,44 @@ export default function UmkmDashboardPage() {
     await refreshAssetsFor(profile.id);
   }
 
+  async function updateGalleryItem(id, updates) {
+    setMessage("");
+    setError("");
+    const { error: updateError } = await supabase
+      .from("umkm_gallery")
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .eq("umkm_id", profile.id)
+      .eq("status", "pending");
+
+    if (updateError) {
+      setError(updateError.message);
+      return;
+    }
+
+    setMessage("Galeri pending berhasil diperbarui.");
+    await refreshAssetsFor(profile.id);
+  }
+
+  async function updateTestimonialItem(id, updates) {
+    setMessage("");
+    setError("");
+    const { error: updateError } = await supabase
+      .from("umkm_testimonials")
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .eq("umkm_id", profile.id)
+      .eq("status", "pending");
+
+    if (updateError) {
+      setError(updateError.message);
+      return;
+    }
+
+    setMessage("Testimoni pending berhasil diperbarui.");
+    await refreshAssetsFor(profile.id);
+  }
+
   return (
     <main className="bg-[#FBFAF6]">
       <div className="mx-auto w-[min(1180px,calc(100%-32px))] py-8 md:py-10">
@@ -319,6 +357,7 @@ export default function UmkmDashboardPage() {
               items={gallery}
               uploading={uploadingGallery}
               onSubmit={handleGallerySubmit}
+              onUpdate={updateGalleryItem}
               onDelete={(id) => deleteAsset("umkm_gallery", id)}
             />
           )}
@@ -326,6 +365,7 @@ export default function UmkmDashboardPage() {
             <TestimonialManager
               items={testimonials}
               onSubmit={handleTestimonialSubmit}
+              onUpdate={updateTestimonialItem}
               onDelete={(id) => deleteAsset("umkm_testimonials", id)}
             />
           )}
@@ -529,7 +569,7 @@ function ProfileTab({ profile, formState, editing, setEditing, onSave }) {
   );
 }
 
-function GalleryManager({ items, uploading, onSubmit, onDelete }) {
+function GalleryManager({ items, uploading, onSubmit, onUpdate, onDelete }) {
   return (
     <div className="rounded-[24px] border border-[#064E3B]/10 bg-white p-6 shadow-soft">
       <div className="flex items-start gap-3">
@@ -539,6 +579,7 @@ function GalleryManager({ items, uploading, onSubmit, onDelete }) {
           <p className="mt-1 text-sm font-semibold text-[#1F2937]/62">Galeri yang diajukan akan ditinjau admin sebelum tampil publik.</p>
         </div>
       </div>
+      <InfoBox text="Konten yang sudah disetujui telah melalui verifikasi admin dan hanya dapat diubah melalui pengajuan ke admin." />
       <form onSubmit={onSubmit} className="mt-6 grid gap-3 rounded-[20px] bg-[#FFF8E7] p-5 md:grid-cols-[1fr_1fr_150px_auto] md:items-end">
         <Input label="Upload Gambar" name="image" type="file" accept="image/*" />
         <Input label="Caption" name="caption" placeholder="Contoh: Paket nasi box jamaah" />
@@ -549,22 +590,23 @@ function GalleryManager({ items, uploading, onSubmit, onDelete }) {
       </form>
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {items.length ? items.map((item) => (
-          <AssetCard key={item.id} status={item.status} canDelete={canDeleteAsset(item.status)} onDelete={() => onDelete(item.id)}>
+          <GalleryAssetCard key={item.id} item={item} onUpdate={onUpdate} onDelete={onDelete}>
             <img src={item.image_url} alt={item.caption || "Galeri UMKM"} className="h-44 w-full rounded-2xl object-cover" />
             <p className="mt-3 font-semibold text-[#1F2937]/76">{item.caption || "Tanpa caption"}</p>
             <p className="mt-1 text-xs font-bold text-[#1F2937]/50">Urutan tampil: {item.sort_order || 0}</p>
-          </AssetCard>
+          </GalleryAssetCard>
         )) : <div className="sm:col-span-2 lg:col-span-3"><EmptyPanel text="Tampilan galeri akan muncul setelah Anda mengajukan dokumentasi layanan." /></div>}
       </div>
     </div>
   );
 }
 
-function TestimonialManager({ items, onSubmit, onDelete }) {
+function TestimonialManager({ items, onSubmit, onUpdate, onDelete }) {
   return (
     <div className="rounded-[24px] border border-[#064E3B]/10 bg-white p-6 shadow-soft">
       <h2 className="font-display text-2xl font-bold text-[#064E3B]">Testimoni</h2>
       <p className="mt-1 text-sm font-semibold text-[#1F2937]/62">Testimoni yang diajukan akan diverifikasi admin sebelum tampil publik.</p>
+      <InfoBox text="Konten yang sudah disetujui telah melalui verifikasi admin dan hanya dapat diubah melalui pengajuan ke admin." />
       <form onSubmit={onSubmit} className="mt-6 grid gap-3 rounded-[20px] bg-[#FFF8E7] p-5 md:grid-cols-2">
         <Input label="Nama Pelanggan" name="customer_name" required />
         <Input label="Tipe Pelanggan" name="customer_type" placeholder="Travel, KBIH, Jamaah" />
@@ -579,11 +621,11 @@ function TestimonialManager({ items, onSubmit, onDelete }) {
       </form>
       <div className="mt-6 grid gap-4 md:grid-cols-2">
         {items.length ? items.map((item) => (
-          <AssetCard key={item.id} status={item.status} canDelete={canDeleteAsset(item.status)} onDelete={() => onDelete(item.id)}>
+          <TestimonialAssetCard key={item.id} item={item} onUpdate={onUpdate} onDelete={onDelete}>
             <p className="font-black text-[#064E3B]">{item.customer_name}</p>
             <p className="text-sm text-[#1F2937]/55">{item.customer_type || "Pelanggan"} - {renderStars(item.rating)}</p>
             <p className="mt-3 text-sm leading-6 text-[#1F2937]/70">{item.testimonial}</p>
-          </AssetCard>
+          </TestimonialAssetCard>
         )) : <div className="md:col-span-2"><EmptyPanel text="Testimoni akan muncul setelah Anda mengajukan ulasan pelanggan." /></div>}
       </div>
     </div>
@@ -621,19 +663,127 @@ function LeadsTab({ leads, summary }) {
   );
 }
 
-function AssetCard({ status, canDelete, onDelete, children }) {
+function GalleryAssetCard({ item, onUpdate, onDelete, children }) {
+  const [editing, setEditing] = useState(false);
+  const [caption, setCaption] = useState(item.caption || "");
+
+  function saveEdit() {
+    onUpdate(item.id, { caption });
+    setEditing(false);
+  }
+
+  return (
+    <AssetCardShell status={item.status}>
+      {children}
+      {editing && (
+        <div className="mt-3 grid gap-2 rounded-2xl bg-[#FFF8E7] p-3">
+          <input value={caption} onChange={(event) => setCaption(event.target.value)} className="field py-3" placeholder="Caption galeri" />
+          <div className="flex gap-2">
+            <button type="button" onClick={saveEdit} className="rounded-lg bg-[#064E3B] px-3 py-2 text-xs font-black text-white">Simpan</button>
+            <button type="button" onClick={() => setEditing(false)} className="rounded-lg border border-[#064E3B]/15 px-3 py-2 text-xs font-black text-[#064E3B]">Batal</button>
+          </div>
+        </div>
+      )}
+      <AssetActions
+        status={item.status}
+        approvedText="Hubungi admin untuk perubahan"
+        onEdit={() => setEditing(true)}
+        onDelete={() => onDelete(item.id)}
+      />
+    </AssetCardShell>
+  );
+}
+
+function TestimonialAssetCard({ item, onUpdate, onDelete, children }) {
+  const [editing, setEditing] = useState(false);
+  const [customerName, setCustomerName] = useState(item.customer_name || "");
+  const [customerType, setCustomerType] = useState(item.customer_type || "");
+  const [rating, setRating] = useState(item.rating || 5);
+  const [testimonial, setTestimonial] = useState(item.testimonial || "");
+
+  function saveEdit() {
+    onUpdate(item.id, {
+      customer_name: customerName,
+      customer_type: customerType,
+      rating: Number(rating || 5),
+      testimonial,
+    });
+    setEditing(false);
+  }
+
+  return (
+    <AssetCardShell status={item.status}>
+      {children}
+      {editing && (
+        <div className="mt-3 grid gap-2 rounded-2xl bg-[#FFF8E7] p-3">
+          <input value={customerName} onChange={(event) => setCustomerName(event.target.value)} className="field py-3" placeholder="Nama pelanggan" />
+          <input value={customerType} onChange={(event) => setCustomerType(event.target.value)} className="field py-3" placeholder="Tipe pelanggan" />
+          <input type="number" min="1" max="5" value={rating} onChange={(event) => setRating(event.target.value)} className="field py-3" />
+          <textarea value={testimonial} onChange={(event) => setTestimonial(event.target.value)} rows={4} className="field resize-none" />
+          <div className="flex gap-2">
+            <button type="button" onClick={saveEdit} className="rounded-lg bg-[#064E3B] px-3 py-2 text-xs font-black text-white">Simpan</button>
+            <button type="button" onClick={() => setEditing(false)} className="rounded-lg border border-[#064E3B]/15 px-3 py-2 text-xs font-black text-[#064E3B]">Batal</button>
+          </div>
+        </div>
+      )}
+      <AssetActions
+        status={item.status}
+        approvedText="Testimoni yang sudah disetujui tidak dapat dihapus langsung. Hubungi admin untuk pengajuan perubahan."
+        onEdit={() => setEditing(true)}
+        onDelete={() => onDelete(item.id)}
+      />
+    </AssetCardShell>
+  );
+}
+
+function AssetCardShell({ status, children }) {
   return (
     <article className="rounded-[20px] border border-[#064E3B]/10 bg-white p-4 shadow-soft">
       <div className="mb-3 flex items-center justify-between gap-3">
         <StatusBadge status={status} />
-        {canDelete && (
-          <button type="button" onClick={onDelete} className="inline-flex items-center gap-1 rounded-lg bg-red-50 px-3 py-1.5 text-xs font-black text-red-700">
-            <Trash2 size={13} /> Hapus
-          </button>
-        )}
+        {status === "approved" && <VerifiedBadge />}
       </div>
       {children}
     </article>
+  );
+}
+
+function AssetActions({ status, approvedText, onEdit, onDelete }) {
+  if (status === "pending") {
+    return (
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button type="button" onClick={onEdit} className="inline-flex items-center gap-1 rounded-lg border border-[#064E3B]/15 px-3 py-2 text-xs font-black text-[#064E3B]">
+          <Pencil size={13} /> Edit
+        </button>
+        <button type="button" onClick={onDelete} className="inline-flex items-center gap-1 rounded-lg bg-red-50 px-3 py-2 text-xs font-black text-red-700">
+          <Trash2 size={13} /> Hapus
+        </button>
+      </div>
+    );
+  }
+
+  if (status === "rejected") {
+    return (
+      <div className="mt-4">
+        <button type="button" onClick={onDelete} className="inline-flex items-center gap-1 rounded-lg bg-red-50 px-3 py-2 text-xs font-black text-red-700">
+          <Trash2 size={13} /> Hapus
+        </button>
+      </div>
+    );
+  }
+
+  if (status === "approved") {
+    return <p className="mt-4 rounded-2xl bg-[#ECFDF5] p-3 text-xs font-bold leading-5 text-[#064E3B]">{approvedText}</p>;
+  }
+
+  return null;
+}
+
+function VerifiedBadge() {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-800">
+      <CheckCircle2 size={13} /> Terverifikasi
+    </span>
   );
 }
 
@@ -648,6 +798,10 @@ function StatusBadge({ status }) {
 
 function EmptyPanel({ text }) {
   return <p className="rounded-2xl border border-dashed border-[#064E3B]/15 bg-[#ECFDF5] p-5 text-center text-sm font-semibold text-[#064E3B]">{text}</p>;
+}
+
+function InfoBox({ text }) {
+  return <p className="mt-5 rounded-2xl border border-[#D6A84F]/25 bg-[#FFF8E7] p-4 text-sm font-semibold leading-6 text-[#064E3B]">{text}</p>;
 }
 
 function MiniMetric({ label, value }) {
@@ -675,10 +829,6 @@ function InfoItem({ label, value, className = "" }) {
       <p className="mt-2 break-words text-sm font-semibold leading-6 text-[#1F2937]/75">{value || "-"}</p>
     </div>
   );
-}
-
-function canDeleteAsset(status) {
-  return status === "pending" || status === "rejected";
 }
 
 function Input({ label, className = "", ...props }) {

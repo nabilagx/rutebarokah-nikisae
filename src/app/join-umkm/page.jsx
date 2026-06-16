@@ -12,8 +12,6 @@ const initialForm = {
   business_name: "",
   owner_name: "",
   owner_email: "",
-  password: "",
-  confirm_password: "",
   category: "Katering",
   subcategory: "",
   location: "Jakarta",
@@ -61,9 +59,7 @@ export default function JoinUmkmPage() {
 
     try {
       const cleanEmail = form.owner_email.trim().toLowerCase();
-      if (!emailRegex.test(cleanEmail)) throw new Error("Email pemilik wajib valid.");
-      if (form.password.length < 8) throw new Error("Password minimal 8 karakter.");
-      if (form.password !== form.confirm_password) throw new Error("Password dan konfirmasi password harus sama.");
+      if (!emailRegex.test(cleanEmail)) throw new Error("Email pendaftar wajib valid.");
 
       let imageUrl = form.image_url.trim();
 
@@ -71,38 +67,9 @@ export default function JoinUmkmPage() {
         imageUrl = await uploadUmkmImage(file);
       }
 
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-        email: cleanEmail,
-        password: form.password,
-        options: {
-          data: {
-            full_name: form.owner_name,
-            role: "umkm",
-          },
-        },
-      });
-
-      if (signUpError) {
-        console.error("Supabase signUp error:", signUpError);
-        throw signUpError;
-      }
-      const userId = signUpData.user?.id;
-      if (!userId) throw new Error("Akun berhasil diproses, tetapi user ID belum tersedia. Coba login atau hubungi admin.");
-
-      const { error: profileError } = await supabase.from("profiles").upsert({
-        id: userId,
-        full_name: form.owner_name,
-        email: cleanEmail,
-        role: "umkm",
-      });
-
-      if (profileError) {
-        console.error("Optional profiles upsert ditolak, lanjut karena trigger Supabase menangani profiles:", profileError);
-      }
-
       const registrationCode = generateRegistrationCode();
       const payload = {
-        user_id: userId,
+        user_id: null,
         owner_email: cleanEmail,
         registration_code: registrationCode,
         business_name: form.business_name,
@@ -130,7 +97,7 @@ export default function JoinUmkmPage() {
       }
 
       setSuccessData({ registration_code: registrationCode, business_name: form.business_name });
-      setMessage("Pendaftaran UMKM berhasil dikirim.");
+      setMessage("Pendaftaran UMKM berhasil dikirim. Data Anda akan diverifikasi admin.");
       setForm(initialForm);
       setFile(null);
       event.target.reset();
@@ -153,7 +120,7 @@ export default function JoinUmkmPage() {
 
     const { data, error: queryError } = await supabase
       .from("umkm_profiles")
-      .select("business_name, owner_name, location, status, created_at, verification_note, registration_code, whatsapp")
+      .select("business_name, owner_name, owner_email, location, status, created_at, verification_note, registration_code, whatsapp")
       .eq("registration_code", code)
       .maybeSingle();
 
@@ -184,7 +151,7 @@ export default function JoinUmkmPage() {
             </span>
             <h1 className="mt-5 font-display text-4xl font-bold text-[#064E3B]">Pendaftaran UMKM Berhasil Dikirim</h1>
             <p className="mx-auto mt-3 max-w-xl leading-7 text-[#1F2937]/68">
-              Akun UMKM Anda sudah dibuat, tetapi profil usaha akan tampil setelah diverifikasi admin.
+              Pendaftaran UMKM berhasil dikirim. Data Anda akan diverifikasi admin.
             </p>
             <div className="mt-6 rounded-3xl bg-[#FFF8E7] p-6">
               <p className="text-sm font-black uppercase tracking-[0.18em] text-[#D6A84F]">ID Pendaftaran</p>
@@ -192,9 +159,9 @@ export default function JoinUmkmPage() {
               <p className="mt-2 text-sm font-semibold text-[#1F2937]/62">Simpan ID pendaftaran ini untuk mengecek status verifikasi UMKM Anda.</p>
             </div>
             <div className="mt-7 grid gap-3 sm:grid-cols-3">
-              <Link href="/login" className="rounded-xl bg-[#064E3B] px-5 py-4 font-bold text-white">Login Dashboard UMKM</Link>
-              <button type="button" onClick={() => setSuccessData(null)} className="rounded-xl border border-[#064E3B]/15 px-5 py-4 font-bold text-[#064E3B]">Cek Status Pendaftaran</button>
+              <button type="button" onClick={() => setSuccessData(null)} className="rounded-xl bg-[#064E3B] px-5 py-4 font-bold text-white">Cek Status Pendaftaran</button>
               <Link href="/" className="rounded-xl border border-[#064E3B]/15 px-5 py-4 font-bold text-[#064E3B]">Kembali ke Beranda</Link>
+              <Link href="/vendors" className="rounded-xl border border-[#064E3B]/15 px-5 py-4 font-bold text-[#064E3B]">Lihat Katalog</Link>
             </div>
           </div>
         </section>
@@ -217,11 +184,9 @@ export default function JoinUmkmPage() {
             <div className="grid gap-5 md:grid-cols-2">
               <Input label="Nama UMKM / Brand" name="business_name" value={form.business_name} onChange={updateField} required placeholder="Contoh: Dapur Barokah Catering" />
               <Input label="Nama Pemilik" name="owner_name" value={form.owner_name} onChange={updateField} required placeholder="Masukkan nama pemilik usaha" />
-              <Input label="Email Pemilik" name="owner_email" value={form.owner_email} onChange={updateField} type="email" required placeholder="nama@email.com" />
-              <Input label="Password" name="password" value={form.password} onChange={updateField} type="password" required minLength={8} placeholder="Minimal 8 karakter" />
-              <Input label="Konfirmasi Password" name="confirm_password" value={form.confirm_password} onChange={updateField} type="password" required minLength={8} placeholder="Ulangi password" />
+              <Input label="Email Pendaftar" name="owner_email" value={form.owner_email} onChange={updateField} type="email" required placeholder="nama@email.com" />
               <div className="rounded-2xl bg-[#ECFDF5] p-4 text-sm font-semibold leading-6 text-[#064E3B] md:col-span-2">
-                Email dan password digunakan untuk mengakses dashboard UMKM setelah pendaftaran.
+                Pendaftaran tidak membuat akun login otomatis. Email ini disimpan sebagai kontak pendaftar; akun dashboard UMKM akan dibuat atau dihubungkan oleh admin setelah verifikasi.
               </div>
               <label className="label">
                 Nomor WhatsApp
@@ -338,8 +303,8 @@ function StatusCheckSection({ form, setForm, result, error, loading, onSubmit })
 function StatusResultCard({ result }) {
   const texts = {
     pending: "Pendaftaran Anda sedang menunggu verifikasi admin.",
-    approved: "Pendaftaran Anda telah disetujui. Silakan login ke dashboard UMKM menggunakan email dan password yang didaftarkan.",
-    rejected: "Pendaftaran belum dapat disetujui. Silakan periksa catatan admin atau hubungi RuteBarokah.",
+    approved: "Pendaftaran Anda sudah disetujui dan dapat tampil di katalog RuteBarokah.",
+    rejected: "Pendaftaran belum dapat disetujui. Silakan lihat catatan admin.",
   };
 
   return (
@@ -353,8 +318,9 @@ function StatusResultCard({ result }) {
         <span className="rounded-full bg-[#ECFDF5] px-4 py-2 text-sm font-black text-[#064E3B]">{result.status}</span>
       </div>
       <p className="mt-4 leading-7 text-[#1F2937]/70">{texts[result.status] || texts.pending}</p>
-      <div className="mt-4 grid gap-3 md:grid-cols-3">
+      <div className="mt-4 grid gap-3 md:grid-cols-4">
         <MiniInfo label="ID Pendaftaran" value={result.registration_code} />
+        <MiniInfo label="Email Pendaftar" value={result.owner_email || "-"} />
         <MiniInfo label="Tanggal Daftar" value={formatDate(result.created_at)} />
         <MiniInfo label="Catatan Verifikasi" value={result.verification_note || "-"} />
       </div>

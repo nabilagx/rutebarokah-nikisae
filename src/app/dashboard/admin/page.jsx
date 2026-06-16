@@ -42,6 +42,7 @@ export default function AdminDashboardPage() {
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [selectedLeadVendor, setSelectedLeadVendor] = useState(null);
   const [selectedUmkm, setSelectedUmkm] = useState(null);
+  const [accountHelpUmkm, setAccountHelpUmkm] = useState(null);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
@@ -279,6 +280,7 @@ export default function AdminDashboardPage() {
             items={allUmkm}
             onDetail={setSelectedUmkm}
             onUpdate={updateUmkm}
+            onAccountHelp={setAccountHelpUmkm}
           />
         )}
         {activeSection === "pending" && (
@@ -328,7 +330,11 @@ export default function AdminDashboardPage() {
           item={selectedUmkm}
           onClose={() => setSelectedUmkm(null)}
           onUpdate={updateUmkm}
+          onAccountHelp={setAccountHelpUmkm}
         />
+      )}
+      {accountHelpUmkm && (
+        <AccountHelpModal item={accountHelpUmkm} onClose={() => setAccountHelpUmkm(null)} />
       )}
     </main>
   );
@@ -388,7 +394,7 @@ function OverviewSection({ allUmkm, pendingUmkm, leads, requests, gallery, testi
   );
 }
 
-function AllUmkmPanel({ items, onDetail, onUpdate }) {
+function AllUmkmPanel({ items, onDetail, onUpdate, onAccountHelp }) {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
   const [category, setCategory] = useState("");
@@ -422,6 +428,7 @@ function AllUmkmPanel({ items, onDetail, onUpdate }) {
         <div>
           <h2 className="font-display text-3xl font-bold text-[#064E3B]">Semua UMKM</h2>
           <p className="mt-1 text-sm text-[#1F2937]/60">Kelola seluruh UMKM, status akun, kurasi, featured, dan public listing.</p>
+          <p className="mt-2 text-sm font-semibold text-[#064E3B]">Catatan: "Belum Ada Akun" bukan error. Itu berarti UMKM sudah mendaftar, tetapi belum dibuatkan akun dashboard.</p>
         </div>
         <span className="rounded-full bg-[#ECFDF5] px-4 py-2 text-sm font-black text-[#064E3B]">{filtered.length} UMKM</span>
       </div>
@@ -434,10 +441,13 @@ function AllUmkmPanel({ items, onDetail, onUpdate }) {
         <SelectBare value={sort} onChange={setSort} options={["terbaru", "nama", "score"]} />
       </div>
       <div className="mt-5 hidden overflow-x-auto lg:block">
-        <table className="w-full min-w-[920px] text-left text-sm">
+        <table className="w-full min-w-[1180px] text-left text-sm">
           <thead className="text-xs uppercase tracking-[0.12em] text-[#064E3B]/60">
             <tr className="border-b border-[#064E3B]/10">
               <th className="py-3">Nama UMKM</th>
+              <th>Email Pendaftar</th>
+              <th>WhatsApp</th>
+              <th>ID Pendaftaran</th>
               <th>Kategori</th>
               <th>Lokasi</th>
               <th>Status</th>
@@ -452,6 +462,9 @@ function AllUmkmPanel({ items, onDetail, onUpdate }) {
             {filtered.length ? filtered.map((item) => (
               <tr key={item.id} className="border-b border-[#064E3B]/8 align-top">
                 <td className="py-4 font-black text-[#064E3B]">{item.business_name || "-"}</td>
+                <td>{item.owner_email || "-"}</td>
+                <td>{formatWhatsapp(item.whatsapp)}</td>
+                <td className="font-semibold">{item.registration_code || "-"}</td>
                 <td><BadgeSoft>{item.category || "-"}</BadgeSoft></td>
                 <td>{item.location || "-"}</td>
                 <td><StatusBadge status={item.status || "pending"} /></td>
@@ -460,11 +473,11 @@ function AllUmkmPanel({ items, onDetail, onUpdate }) {
                 <td>{item.is_featured ? "Ya" : "Tidak"}</td>
                 <td>{formatDate(item.created_at)}</td>
                 <td>
-                  <RowActions item={item} onDetail={onDetail} onUpdate={onUpdate} />
+                  <RowActions item={item} onDetail={onDetail} onUpdate={onUpdate} onAccountHelp={onAccountHelp} />
                 </td>
               </tr>
             )) : (
-              <tr><td colSpan="9" className="py-6 text-center text-[#1F2937]/60">Tidak ada UMKM sesuai filter.</td></tr>
+              <tr><td colSpan="12" className="py-6 text-center text-[#1F2937]/60">Tidak ada UMKM sesuai filter.</td></tr>
             )}
           </tbody>
         </table>
@@ -485,7 +498,7 @@ function AllUmkmPanel({ items, onDetail, onUpdate }) {
               <div><p className="text-xs font-black uppercase text-[#064E3B]/55">Daftar</p><p className="font-semibold">{formatDate(item.created_at)}</p></div>
             </div>
             <div className="mt-4">
-              <RowActions item={item} onDetail={onDetail} onUpdate={onUpdate} />
+              <RowActions item={item} onDetail={onDetail} onUpdate={onUpdate} onAccountHelp={onAccountHelp} />
             </div>
           </article>
         )) : (
@@ -496,7 +509,7 @@ function AllUmkmPanel({ items, onDetail, onUpdate }) {
   );
 }
 
-function RowActions({ item, onDetail, onUpdate }) {
+function RowActions({ item, onDetail, onUpdate, onAccountHelp }) {
   const status = item.status || "pending";
 
   const baseButton = "rounded-lg px-3 py-2 text-sm font-bold";
@@ -510,11 +523,17 @@ function RowActions({ item, onDetail, onUpdate }) {
       Edit
     </button>
   );
+  const accountButton = !item.user_id && (
+    <button type="button" onClick={() => onAccountHelp(item)} className={`${baseButton} bg-[#FFF8E7] text-[#064E3B]`}>
+      Buat / Hubungkan Akun
+    </button>
+  );
 
   if (status === "pending") {
     return (
       <div className="flex flex-wrap gap-2">
         {detailButton}
+        {accountButton}
         <button type="button" onClick={() => confirm("Approve UMKM ini?") && approveUmkmFromRow(item, onUpdate)} className={`${baseButton} bg-emerald-50 text-emerald-700`}>
           Approve
         </button>
@@ -530,6 +549,7 @@ function RowActions({ item, onDetail, onUpdate }) {
       <div className="flex flex-wrap gap-2">
         {detailButton}
         {editButton}
+        {accountButton}
         <button type="button" onClick={() => onUpdate(item.id, { status: "suspended", updated_at: new Date().toISOString() })} className={`${baseButton} bg-gray-100 text-gray-700`}>
           Suspend
         </button>
@@ -544,6 +564,7 @@ function RowActions({ item, onDetail, onUpdate }) {
     return (
       <div className="flex flex-wrap gap-2">
         {detailButton}
+        {accountButton}
         <button type="button" onClick={() => confirm("Re-Approve UMKM ini?") && approveUmkmFromRow(item, onUpdate)} className={`${baseButton} bg-emerald-50 text-emerald-700`}>
           Re-Approve
         </button>
@@ -556,6 +577,7 @@ function RowActions({ item, onDetail, onUpdate }) {
     return (
       <div className="flex flex-wrap gap-2">
         {detailButton}
+        {accountButton}
         <button type="button" onClick={() => confirm("Aktifkan UMKM ini kembali?") && approveUmkmFromRow(item, onUpdate)} className={`${baseButton} bg-emerald-50 text-emerald-700`}>
           Activate
         </button>
@@ -564,7 +586,7 @@ function RowActions({ item, onDetail, onUpdate }) {
     );
   }
 
-  return <div className="flex flex-wrap gap-2">{detailButton}{editButton}</div>;
+  return <div className="flex flex-wrap gap-2">{detailButton}{accountButton}{editButton}</div>;
 }
 
 function LeadsPanel({ leads, onDetail }) {
@@ -1074,7 +1096,7 @@ function AdminUmkmCard({ item, onUpdate, onDetail }) {
   );
 }
 
-function UmkmDetailModal({ item, onClose, onUpdate }) {
+function UmkmDetailModal({ item, onClose, onUpdate, onAccountHelp }) {
   const [score, setScore] = useState(item.barokah_score || 0);
   const [badges, setBadges] = useState(splitBadges(item.badges).join(", "));
   const [featured, setFeatured] = useState(Boolean(item.is_featured));
@@ -1104,13 +1126,19 @@ function UmkmDetailModal({ item, onClose, onUpdate }) {
             <div className="mt-4 grid gap-2">
               <StatusBadge status={item.status || "pending"} />
               <AccountBadge connected={Boolean(item.user_id)} />
+              <p className="rounded-2xl bg-white p-3 text-xs font-semibold leading-5 text-[#1F2937]/65">
+                {item.user_id
+                  ? "Akun dashboard UMKM sudah terhubung."
+                  : "Email pendaftar sudah tersimpan, tetapi akun dashboard UMKM belum dibuat atau belum dihubungkan."}
+              </p>
               <p className="text-xs font-semibold text-[#1F2937]/60">User ID: {item.user_id || "-"}</p>
             </div>
           </div>
           <div className="grid gap-3 md:grid-cols-2">
             <DetailItem label="Nama usaha" value={item.business_name} />
             <DetailItem label="Nama pemilik" value={item.owner_name} />
-            <DetailItem label="Email pemilik" value={item.owner_email} />
+            <DetailItem label="Email Pendaftar" value={item.owner_email} />
+            <DetailItem label="Email Login Dashboard" value={item.user_id ? item.owner_email : "-"} />
             <DetailItem label="WhatsApp" value={formatWhatsapp(item.whatsapp)} />
             <DetailItem label="Registration code" value={item.registration_code} />
             <DetailItem label="Kategori" value={item.category} />
@@ -1161,6 +1189,11 @@ function UmkmDetailModal({ item, onClose, onUpdate }) {
           <a href={`/vendors/${item.id}`} target="_blank" rel="noreferrer" className="rounded-xl bg-[#FFF8E7] px-5 py-3 font-black text-[#064E3B]">
             Lihat Public
           </a>
+          {!item.user_id && (
+            <button type="button" onClick={() => onAccountHelp(item)} className="rounded-xl bg-[#ECFDF5] px-5 py-3 font-black text-[#064E3B]">
+              Buat / Hubungkan Akun UMKM
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -1169,16 +1202,13 @@ function UmkmDetailModal({ item, onClose, onUpdate }) {
 
 function approveUmkmFromRow(item, onUpdate) {
   const normalizedScore = Number(item.barokah_score || 0);
-  const parsedBadges = splitBadges(item.badges);
-  const shouldUseDefaultBadges =
-    !parsedBadges.length || (parsedBadges.length === 1 && parsedBadges[0] === "Menunggu Verifikasi");
 
   onUpdate(item.id, {
     status: "approved",
     approved_at: new Date().toISOString(),
     verification_note: item.verification_note || null,
     barokah_score: normalizedScore > 0 ? normalizedScore : 85,
-    badges: shouldUseDefaultBadges ? ["Terkurasi", "Menunggu Review Lanjutan"] : parsedBadges,
+    badges: ["Terkurasi", "Menunggu Review Lanjutan"],
     is_featured: Boolean(item.is_featured),
   });
 }
@@ -1325,10 +1355,36 @@ function AccountBadge({ connected }) {
   ) : (
     <span
       className="inline-flex rounded-full bg-amber-100 px-3 py-1 text-xs font-black text-amber-800"
-      title="Data ini belum terhubung dengan akun dashboard UMKM. Biasanya terjadi pada data dummy/import manual atau pendaftaran lama."
+      title="Belum Ada Akun bukan error. UMKM sudah mendaftar, tetapi akun dashboard belum dibuat atau belum dihubungkan."
     >
       Belum Ada Akun
     </span>
+  );
+}
+
+function AccountHelpModal({ item, onClose }) {
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-[#001B14]/70 px-4 py-8 backdrop-blur-sm">
+      <div className="w-full max-w-2xl rounded-[28px] bg-white p-6 shadow-premium md:p-7">
+        <ModalHeader eyebrow="Akun Dashboard UMKM" title="Buat / Hubungkan Akun UMKM" onClose={onClose} />
+        <div className="mt-5 rounded-2xl bg-[#FFF8E7] p-5 text-sm leading-7 text-[#1F2937]/72">
+          <p className="font-black text-[#064E3B]">{item.business_name || "UMKM"}</p>
+          <p>Email Pendaftar: <span className="font-bold">{item.owner_email || "-"}</span></p>
+          <p>ID Pendaftaran: <span className="font-bold">{item.registration_code || "-"}</span></p>
+        </div>
+        <div className="mt-5 grid gap-3 text-sm leading-7 text-[#1F2937]/72">
+          <p className="rounded-2xl bg-[#ECFDF5] p-4 font-semibold text-[#064E3B]">
+            Untuk MVP, pendaftaran publik tidak membuat akun Auth otomatis. Buat user di Supabase Authentication dengan email pendaftar, lalu hubungkan `user_id` ke UMKM ini.
+          </p>
+          <p>
+            Jika nanti dibuat otomatis, prosesnya harus melalui server route/admin API yang aman. Jangan gunakan service_role key di frontend.
+          </p>
+        </div>
+        <button type="button" onClick={onClose} className="mt-6 rounded-xl bg-[#064E3B] px-5 py-3 font-black text-white">
+          Mengerti
+        </button>
+      </div>
+    </div>
   );
 }
 
