@@ -31,6 +31,8 @@ export default function AdminDashboardPage() {
   const [checking, setChecking] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminEmail, setAdminEmail] = useState("");
+  const [activeSection, setActiveSection] = useState("overview");
+  const [allUmkm, setAllUmkm] = useState([]);
   const [pendingUmkm, setPendingUmkm] = useState([]);
   const [vendors, setVendors] = useState([]);
   const [requests, setRequests] = useState([]);
@@ -39,6 +41,7 @@ export default function AdminDashboardPage() {
   const [testimonials, setTestimonials] = useState([]);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [selectedLeadVendor, setSelectedLeadVendor] = useState(null);
+  const [selectedUmkm, setSelectedUmkm] = useState(null);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
@@ -82,16 +85,11 @@ export default function AdminDashboardPage() {
   }
 
   async function loadDashboardData() {
-    const [umkmResult, vendorResult, requestResult, galleryResult, testimonialResult] = await Promise.all([
+    const [vendorResult, requestResult, galleryResult, testimonialResult] = await Promise.all([
       supabase
         .from("umkm_profiles")
         .select("*")
-        .eq("status", "pending")
         .order("created_at", { ascending: false }),
-      supabase
-        .from("umkm_profiles")
-        .select("id, business_name, category, location")
-        .order("business_name", { ascending: true }),
       supabase
         .from("vendor_requests")
         .select("*")
@@ -106,11 +104,19 @@ export default function AdminDashboardPage() {
         .order("created_at", { ascending: false }),
     ]);
 
-    const vendorList = vendorResult.data || [];
+    const allUmkmData = vendorResult.data || [];
+    const vendorList = allUmkmData.map((vendor) => ({
+      id: vendor.id,
+      business_name: vendor.business_name,
+      category: vendor.category,
+      location: vendor.location,
+      status: vendor.status,
+    }));
     const vendorMap = new Map(vendorList.map((vendor) => [vendor.id, vendor]));
     const leadData = await fetchLeadsWithFallback();
 
-    setPendingUmkm(umkmResult.data || []);
+    setAllUmkm(allUmkmData);
+    setPendingUmkm(allUmkmData.filter((item) => item.status === "pending"));
     setVendors(vendorList);
     setRequests(requestResult.data || []);
     setLeads(leadData.map((lead) => ({ ...lead, vendor: vendorMap.get(lead.umkm_id) || null })));
@@ -255,32 +261,49 @@ export default function AdminDashboardPage() {
       )}
 
       <section className="grid gap-6">
-        <LeadsPanel leads={leads} onDetail={setSelectedLeadVendor} />
-        <VendorRequestsPanel
-          requests={requests}
-          onDetail={setSelectedRequest}
-          onWhatsapp={handleRequestWhatsapp}
-          onStatus={updateRequestStatus}
-        />
-        <ModerationPanel
-          vendors={vendors}
-          gallery={gallery}
-          testimonials={testimonials}
-          onGalleryUpdate={updateGallery}
-          onTestimonialUpdate={updateTestimonial}
-          onGalleryDelete={(id) => deleteRow("umkm_gallery", id)}
-          onTestimonialDelete={(id) => deleteRow("umkm_testimonials", id)}
-        />
-        <div className="rounded-[22px] border border-[#064E3B]/10 bg-white p-5 shadow-soft">
-          <h2 className="font-display text-2xl font-bold text-[#064E3B]">UMKM Pending</h2>
-          <div className="mt-5 grid gap-4">
-            {pendingUmkm.length ? pendingUmkm.map((item) => (
-              <AdminUmkmCard key={item.id} item={item} onUpdate={updateUmkm} />
-            )) : (
-              <p className="text-sm text-[#1F2937]/60">Belum ada UMKM pending.</p>
-            )}
+        <SectionNav active={activeSection} onChange={setActiveSection} />
+        {activeSection === "overview" && (
+          <OverviewSection allUmkm={allUmkm} pendingUmkm={pendingUmkm} leads={leads} requests={requests} gallery={gallery} testimonials={testimonials} />
+        )}
+        {activeSection === "leads" && <LeadsPanel leads={leads} onDetail={setSelectedLeadVendor} />}
+        {activeSection === "requests" && (
+          <VendorRequestsPanel
+            requests={requests}
+            onDetail={setSelectedRequest}
+            onWhatsapp={handleRequestWhatsapp}
+            onStatus={updateRequestStatus}
+          />
+        )}
+        {activeSection === "umkm" && (
+          <AllUmkmPanel
+            items={allUmkm}
+            onDetail={setSelectedUmkm}
+            onUpdate={updateUmkm}
+          />
+        )}
+        {activeSection === "pending" && (
+          <div className="rounded-[22px] border border-[#064E3B]/10 bg-white p-5 shadow-soft">
+            <h2 className="font-display text-2xl font-bold text-[#064E3B]">UMKM Pending</h2>
+            <div className="mt-5 grid gap-4">
+              {pendingUmkm.length ? pendingUmkm.map((item) => (
+                <AdminUmkmCard key={item.id} item={item} onUpdate={updateUmkm} onDetail={setSelectedUmkm} />
+              )) : (
+                <p className="text-sm text-[#1F2937]/60">Belum ada UMKM pending.</p>
+              )}
+            </div>
           </div>
-        </div>
+        )}
+        {activeSection === "moderation" && (
+          <ModerationPanel
+            vendors={vendors}
+            gallery={gallery}
+            testimonials={testimonials}
+            onGalleryUpdate={updateGallery}
+            onTestimonialUpdate={updateTestimonial}
+            onGalleryDelete={(id) => deleteRow("umkm_gallery", id)}
+            onTestimonialDelete={(id) => deleteRow("umkm_testimonials", id)}
+          />
+        )}
       </section>
 
       {selectedRequest && (
@@ -289,6 +312,7 @@ export default function AdminDashboardPage() {
           onClose={() => setSelectedRequest(null)}
           onWhatsapp={handleRequestWhatsapp}
           onStatus={updateRequestStatus}
+          approvedVendors={allUmkm.filter((item) => item.status === "approved")}
         />
       )}
 
@@ -298,7 +322,169 @@ export default function AdminDashboardPage() {
           onClose={() => setSelectedLeadVendor(null)}
         />
       )}
+
+      {selectedUmkm && (
+        <UmkmDetailModal
+          item={selectedUmkm}
+          onClose={() => setSelectedUmkm(null)}
+          onUpdate={updateUmkm}
+        />
+      )}
     </main>
+  );
+}
+
+function SectionNav({ active, onChange }) {
+  const items = [
+    ["overview", "Overview"],
+    ["leads", "Leads"],
+    ["requests", "Vendor Requests"],
+    ["umkm", "Semua UMKM"],
+    ["pending", "UMKM Pending"],
+    ["moderation", "Moderasi Konten"],
+  ];
+
+  return (
+    <nav className="flex gap-2 overflow-x-auto rounded-2xl border border-[#064E3B]/10 bg-white p-2 shadow-soft">
+      {items.map(([key, label]) => (
+        <button
+          key={key}
+          type="button"
+          onClick={() => onChange(key)}
+          className={`whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-black ${active === key ? "bg-[#064E3B] text-white" : "text-[#064E3B] hover:bg-[#ECFDF5]"}`}
+        >
+          {label}
+        </button>
+      ))}
+    </nav>
+  );
+}
+
+function OverviewSection({ allUmkm, pendingUmkm, leads, requests, gallery, testimonials }) {
+  const approved = allUmkm.filter((item) => item.status === "approved").length;
+  const rejected = allUmkm.filter((item) => item.status === "rejected").length;
+  const withoutAccount = allUmkm.filter((item) => !item.user_id).length;
+  const galleryPending = gallery.filter((item) => item.status === "pending").length;
+  const testimonialPending = testimonials.filter((item) => item.status === "pending").length;
+
+  return (
+    <section className="rounded-[24px] border border-[#064E3B]/10 bg-white p-5 shadow-soft">
+      <div>
+        <h2 className="font-display text-3xl font-bold text-[#064E3B]">Overview Operasional</h2>
+        <p className="mt-1 text-sm text-[#1F2937]/60">Ringkasan cepat untuk melihat kesehatan marketplace RuteBarokah.</p>
+      </div>
+      <div className="mt-5 grid gap-3 md:grid-cols-3 xl:grid-cols-5">
+        <SummaryCard label="Total UMKM" value={allUmkm.length} />
+        <SummaryCard label="UMKM Pending" value={pendingUmkm.length} />
+        <SummaryCard label="UMKM Approved" value={approved} />
+        <SummaryCard label="UMKM Rejected" value={rejected} />
+        <SummaryCard label="Belum Punya Akun" value={withoutAccount} />
+        <SummaryCard label="Total Leads" value={leads.length} />
+        <SummaryCard label="Total Request Vendor" value={requests.length} />
+        <SummaryCard label="Galeri Pending" value={galleryPending} />
+        <SummaryCard label="Testimoni Pending" value={testimonialPending} />
+      </div>
+    </section>
+  );
+}
+
+function AllUmkmPanel({ items, onDetail, onUpdate }) {
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState("");
+  const [category, setCategory] = useState("");
+  const [location, setLocation] = useState("");
+  const [account, setAccount] = useState("");
+  const [sort, setSort] = useState("terbaru");
+
+  const filtered = useMemo(() => {
+    return items
+      .filter((item) => {
+        const text = `${item.business_name || ""} ${item.owner_name || ""} ${item.owner_email || ""} ${item.registration_code || ""}`.toLowerCase();
+        const accountStatus = item.user_id ? "connected" : "missing";
+        return (
+          text.includes(search.toLowerCase()) &&
+          (status ? item.status === status : true) &&
+          (category ? item.category === category : true) &&
+          (location ? item.location === location : true) &&
+          (account ? accountStatus === account : true)
+        );
+      })
+      .sort((a, b) => {
+        if (sort === "nama") return String(a.business_name || "").localeCompare(String(b.business_name || ""));
+        if (sort === "score") return Number(b.barokah_score || 0) - Number(a.barokah_score || 0);
+        return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+      });
+  }, [items, search, status, category, location, account, sort]);
+
+  return (
+    <section className="rounded-[24px] border border-[#064E3B]/10 bg-white p-5 shadow-soft">
+      <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h2 className="font-display text-3xl font-bold text-[#064E3B]">Semua UMKM</h2>
+          <p className="mt-1 text-sm text-[#1F2937]/60">Kelola seluruh UMKM, status akun, kurasi, featured, dan public listing.</p>
+        </div>
+        <span className="rounded-full bg-[#ECFDF5] px-4 py-2 text-sm font-black text-[#064E3B]">{filtered.length} UMKM</span>
+      </div>
+      <div className="mt-5 grid gap-3 rounded-2xl bg-[#FFF8E7] p-4 md:grid-cols-3 xl:grid-cols-6">
+        <input value={search} onChange={(event) => setSearch(event.target.value)} className="field py-3" placeholder="Cari nama/owner/email/ID" />
+        <SelectBare value={status} onChange={setStatus} options={["", "pending", "approved", "rejected", "suspended"]} placeholder="Semua status" />
+        <SelectBare value={category} onChange={setCategory} options={["", ...categories]} placeholder="Semua kategori" />
+        <SelectBare value={location} onChange={setLocation} options={["", ...locations]} placeholder="Semua lokasi" />
+        <SelectBare value={account} onChange={setAccount} options={["", "connected", "missing"]} placeholder="Semua akun" />
+        <SelectBare value={sort} onChange={setSort} options={["terbaru", "nama", "score"]} />
+      </div>
+      <div className="mt-5 overflow-x-auto">
+        <table className="w-full min-w-[1280px] text-left text-sm">
+          <thead className="text-xs uppercase tracking-[0.12em] text-[#064E3B]/60">
+            <tr className="border-b border-[#064E3B]/10">
+              <th className="py-3">Business</th>
+              <th>Owner</th>
+              <th>Email</th>
+              <th>WhatsApp</th>
+              <th>ID</th>
+              <th>Kategori</th>
+              <th>Lokasi</th>
+              <th>Status</th>
+              <th>Score</th>
+              <th>Featured</th>
+              <th>Created</th>
+              <th>Akun</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.length ? filtered.map((item) => (
+              <tr key={item.id} className="border-b border-[#064E3B]/8 align-top">
+                <td className="py-4 font-black text-[#064E3B]">{item.business_name || "-"}</td>
+                <td>{item.owner_name || "-"}</td>
+                <td>{item.owner_email || "-"}</td>
+                <td>{formatWhatsapp(item.whatsapp)}</td>
+                <td>{item.registration_code || "-"}</td>
+                <td><BadgeSoft>{item.category || "-"}</BadgeSoft></td>
+                <td>{item.location || "-"}</td>
+                <td><StatusBadge status={item.status || "pending"} /></td>
+                <td className="font-black">{item.barokah_score || 0}</td>
+                <td>{item.is_featured ? "Ya" : "Tidak"}</td>
+                <td>{formatDate(item.created_at)}</td>
+                <td><AccountBadge connected={Boolean(item.user_id)} /></td>
+                <td>
+                  <div className="flex flex-wrap gap-2">
+                    <button type="button" onClick={() => onDetail(item)} className="rounded-lg bg-[#064E3B] px-3 py-2 font-bold text-white">Detail</button>
+                    <button type="button" onClick={() => onDetail(item)} className="rounded-lg border border-[#064E3B]/15 px-3 py-2 font-bold text-[#064E3B]">Edit</button>
+                    <button type="button" onClick={() => confirm("Approve UMKM ini?") && approveUmkmFromRow(item, onUpdate)} className="rounded-lg bg-emerald-50 px-3 py-2 font-bold text-emerald-700">Approve</button>
+                    <button type="button" onClick={() => confirm("Reject UMKM ini?") && onUpdate(item.id, { status: "rejected", rejected_at: new Date().toISOString() })} className="rounded-lg bg-red-50 px-3 py-2 font-bold text-red-700">Reject</button>
+                    <button type="button" onClick={() => onUpdate(item.id, { status: "suspended", updated_at: new Date().toISOString() })} className="rounded-lg bg-gray-100 px-3 py-2 font-bold text-gray-700">Suspend</button>
+                    <a href={`/vendors/${item.id}`} target="_blank" rel="noreferrer" className="rounded-lg bg-[#FFF8E7] px-3 py-2 font-bold text-[#064E3B]">Public</a>
+                  </div>
+                </td>
+              </tr>
+            )) : (
+              <tr><td colSpan="13" className="py-6 text-center text-[#1F2937]/60">Tidak ada UMKM sesuai filter.</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }
 
@@ -521,7 +707,16 @@ function VendorRequestsPanel({ requests, onDetail, onWhatsapp, onStatus }) {
   );
 }
 
-function VendorRequestModal({ request, onClose, onWhatsapp, onStatus }) {
+function VendorRequestModal({ request, onClose, onWhatsapp, onStatus, approvedVendors = [] }) {
+  const [matchedUmkmId, setMatchedUmkmId] = useState("");
+  const recommendations = approvedVendors
+    .filter((vendor) => {
+      const matchCategory = request.need_category ? vendor.category === request.need_category : true;
+      const matchLocation = request.location ? vendor.location === request.location : true;
+      return matchCategory || matchLocation;
+    })
+    .slice(0, 5);
+
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-[#001B14]/70 px-4 py-8 backdrop-blur-sm">
       <div className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[28px] bg-white p-6 shadow-premium md:p-7">
@@ -551,6 +746,34 @@ function VendorRequestModal({ request, onClose, onWhatsapp, onStatus }) {
             <ExternalLink size={18} />
             Buka Nomor Saja
           </a>
+        </div>
+        <div className="mt-5 rounded-2xl bg-[#FFF8E7] p-4">
+          <h4 className="font-display text-2xl font-bold text-[#064E3B]">Matched UMKM</h4>
+          <p className="mt-1 text-sm text-[#1F2937]/62">Pilih UMKM approved yang cocok. Untuk MVP, pilihan ini membantu operasional dan tombol akan menandai request sebagai matched.</p>
+          <div className="mt-4 grid gap-3 md:grid-cols-[1fr_auto]">
+            <select value={matchedUmkmId} onChange={(event) => setMatchedUmkmId(event.target.value)} className="field py-3">
+              <option value="">Pilih UMKM approved</option>
+              {approvedVendors.map((vendor) => (
+                <option key={vendor.id} value={vendor.id}>{vendor.business_name} - {vendor.category} - {vendor.location}</option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={() => matchedUmkmId && onStatus(request.id, "matched")}
+              className="rounded-xl bg-[#064E3B] px-5 py-3 font-black text-white disabled:opacity-50"
+              disabled={!matchedUmkmId}
+            >
+              Tandai Matched
+            </button>
+          </div>
+          <div className="mt-4 grid gap-2">
+            {recommendations.length ? recommendations.map((vendor) => (
+              <div key={vendor.id} className="rounded-xl bg-white p-3 text-sm">
+                <span className="font-black text-[#064E3B]">{vendor.business_name}</span>
+                <span className="text-[#1F2937]/60"> • {vendor.category || "-"} • {vendor.location || "-"}</span>
+              </div>
+            )) : <p className="text-sm text-[#1F2937]/60">Belum ada rekomendasi berdasarkan kategori/lokasi.</p>}
+          </div>
         </div>
         <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           {requestStatuses.filter((status) => status !== "new").map((status) => (
@@ -625,6 +848,7 @@ function GalleryModerationCard({ item, onUpdate, onDelete }) {
   const [caption, setCaption] = useState(item.caption || "");
   const [sortOrder, setSortOrder] = useState(item.sort_order || 0);
   const [active, setActive] = useState(Boolean(item.is_active));
+  const [showDetail, setShowDetail] = useState(false);
 
   return (
     <article className="rounded-2xl bg-white p-4 shadow-soft">
@@ -633,6 +857,14 @@ function GalleryModerationCard({ item, onUpdate, onDelete }) {
         <p className="font-black text-[#064E3B]">{item.vendor?.business_name || "UMKM"}</p>
         <StatusBadge status={item.status} />
       </div>
+      {showDetail && (
+        <div className="mt-3 rounded-xl bg-[#FFF8E7] p-3 text-sm leading-6 text-[#1F2937]/68">
+          <p><span className="font-bold">Caption:</span> {item.caption || "-"}</p>
+          <p><span className="font-bold">Sort order:</span> {item.sort_order || 0}</p>
+          <p><span className="font-bold">Aktif:</span> {item.is_active ? "Ya" : "Tidak"}</p>
+          <p><span className="font-bold">Created:</span> {formatDateTime(item.created_at)}</p>
+        </div>
+      )}
       <div className="mt-3 grid gap-2">
         <input value={caption} onChange={(event) => setCaption(event.target.value)} className="field py-3" placeholder="Caption" />
         <input type="number" value={sortOrder} onChange={(event) => setSortOrder(event.target.value)} className="field py-3" placeholder="Sort order" />
@@ -642,6 +874,7 @@ function GalleryModerationCard({ item, onUpdate, onDelete }) {
         </label>
       </div>
       <ModerationActions
+        onDetail={() => setShowDetail((value) => !value)}
         onSave={() => onUpdate(item.id, { caption, sort_order: Number(sortOrder || 0), is_active: active })}
         onApprove={() => onUpdate(item.id, { status: "approved", caption, sort_order: Number(sortOrder || 0), is_active: active })}
         onReject={() => onUpdate(item.id, { status: "rejected" })}
@@ -673,6 +906,7 @@ function TestimonialModerationCard({ item, onUpdate, onDelete }) {
   const [customerType, setCustomerType] = useState(item.customer_type || "");
   const [rating, setRating] = useState(item.rating || 5);
   const [testimonial, setTestimonial] = useState(item.testimonial || "");
+  const [showDetail, setShowDetail] = useState(false);
 
   return (
     <article className="rounded-2xl bg-white p-4 shadow-soft">
@@ -680,6 +914,14 @@ function TestimonialModerationCard({ item, onUpdate, onDelete }) {
         <p className="font-black text-[#064E3B]">{item.vendor?.business_name || "UMKM"}</p>
         <StatusBadge status={item.status} />
       </div>
+      {showDetail && (
+        <div className="mt-3 rounded-xl bg-[#FFF8E7] p-3 text-sm leading-6 text-[#1F2937]/68">
+          <p><span className="font-bold">Customer:</span> {item.customer_name || "-"}</p>
+          <p><span className="font-bold">Type:</span> {item.customer_type || "-"}</p>
+          <p><span className="font-bold">Rating:</span> {item.rating || 0}/5</p>
+          <p><span className="font-bold">Created:</span> {formatDateTime(item.created_at)}</p>
+        </div>
+      )}
       <div className="mt-3 grid gap-2">
         <input value={customerName} onChange={(event) => setCustomerName(event.target.value)} className="field py-3" placeholder="Nama pelanggan" />
         <input value={customerType} onChange={(event) => setCustomerType(event.target.value)} className="field py-3" placeholder="Tipe pelanggan" />
@@ -687,6 +929,7 @@ function TestimonialModerationCard({ item, onUpdate, onDelete }) {
         <textarea value={testimonial} onChange={(event) => setTestimonial(event.target.value)} rows={4} className="field resize-none" />
       </div>
       <ModerationActions
+        onDetail={() => setShowDetail((value) => !value)}
         onSave={() => onUpdate(item.id, { customer_name: customerName, customer_type: customerType, rating: Number(rating || 5), testimonial })}
         onApprove={() => onUpdate(item.id, { status: "approved", customer_name: customerName, customer_type: customerType, rating: Number(rating || 5), testimonial })}
         onReject={() => onUpdate(item.id, { status: "rejected" })}
@@ -696,26 +939,19 @@ function TestimonialModerationCard({ item, onUpdate, onDelete }) {
   );
 }
 
-function AdminUmkmCard({ item, onUpdate }) {
+function AdminUmkmCard({ item, onUpdate, onDetail }) {
   const [score, setScore] = useState(item.barokah_score || 0);
   const [badges, setBadges] = useState(splitBadges(item.badges).join(", "));
   const [featured, setFeatured] = useState(Boolean(item.is_featured));
   const [verificationNote, setVerificationNote] = useState(item.verification_note || "");
 
   function approveUmkm() {
-    const normalizedScore = Number(score || 0);
-    const parsedBadges = splitBadges(badges);
-    onUpdate(item.id, {
-      status: "approved",
-      approved_at: new Date().toISOString(),
-      verification_note: verificationNote || null,
-      barokah_score: normalizedScore > 0 ? normalizedScore : 85,
-      badges: parsedBadges.length ? parsedBadges : ["Terkurasi", "Menunggu Review Lanjutan"],
-      is_featured: featured,
-    });
+    if (!confirm("Approve UMKM ini?")) return;
+    approveUmkmFromRow({ ...item, barokah_score: score, badges, verification_note: verificationNote, is_featured: featured }, onUpdate);
   }
 
   function rejectUmkm() {
+    if (!confirm("Reject UMKM ini?")) return;
     onUpdate(item.id, {
       status: "rejected",
       rejected_at: new Date().toISOString(),
@@ -732,6 +968,7 @@ function AdminUmkmCard({ item, onUpdate }) {
           <p className="mt-2 text-sm leading-6 text-[#1F2937]/65">{item.description}</p>
         </div>
         <div className="flex gap-2">
+          {onDetail && <button type="button" onClick={() => onDetail(item)} className="rounded-xl border border-[#064E3B]/15 bg-white px-4 py-2 text-sm font-bold text-[#064E3B]">Detail</button>}
           <button type="button" onClick={approveUmkm} className="rounded-xl bg-[#064E3B] px-4 py-2 text-sm font-bold text-white">Approve</button>
           <button type="button" onClick={rejectUmkm} className="rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white">Reject</button>
         </div>
@@ -756,6 +993,99 @@ function AdminUmkmCard({ item, onUpdate }) {
       </label>
     </div>
   );
+}
+
+function UmkmDetailModal({ item, onClose, onUpdate }) {
+  const [score, setScore] = useState(item.barokah_score || 0);
+  const [badges, setBadges] = useState(splitBadges(item.badges).join(", "));
+  const [featured, setFeatured] = useState(Boolean(item.is_featured));
+  const [note, setNote] = useState(item.verification_note || "");
+
+  function saveChanges(extra = {}) {
+    onUpdate(item.id, {
+      barokah_score: Number(score || 0),
+      badges: splitBadges(badges),
+      is_featured: featured,
+      verification_note: note || null,
+      ...extra,
+    });
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-[#001B14]/70 px-4 py-8 backdrop-blur-sm">
+      <div className="max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-[28px] bg-white p-6 shadow-premium md:p-7">
+        <ModalHeader eyebrow="Detail UMKM" title={item.business_name || "UMKM"} onClose={onClose} />
+        <div className="mt-6 grid gap-4 lg:grid-cols-[260px_1fr]">
+          <div className="rounded-2xl bg-[#FFF8E7] p-4">
+            {item.image_url ? (
+              <img src={item.image_url} alt={item.business_name || "Logo UMKM"} className="h-48 w-full rounded-xl object-cover" />
+            ) : (
+              <div className="grid h-48 place-items-center rounded-xl bg-[#ECFDF5] font-black text-[#064E3B]">Tidak ada logo</div>
+            )}
+            <div className="mt-4 grid gap-2">
+              <StatusBadge status={item.status || "pending"} />
+              <AccountBadge connected={Boolean(item.user_id)} />
+              <p className="text-xs font-semibold text-[#1F2937]/60">User ID: {item.user_id || "-"}</p>
+            </div>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            <DetailItem label="Nama usaha" value={item.business_name} />
+            <DetailItem label="Nama pemilik" value={item.owner_name} />
+            <DetailItem label="Email pemilik" value={item.owner_email} />
+            <DetailItem label="WhatsApp" value={formatWhatsapp(item.whatsapp)} />
+            <DetailItem label="Registration code" value={item.registration_code} />
+            <DetailItem label="Kategori" value={item.category} />
+            <DetailItem label="Subkategori" value={item.subcategory} />
+            <DetailItem label="Lokasi" value={item.location} />
+            <DetailItem label="Alamat" value={item.address} />
+            <DetailItem label="Kapasitas" value={`${item.capacity_min || 0}-${item.capacity_max || 0} pax`} />
+            <DetailItem label="Harga mulai" value={item.price_start ? `Rp ${Number(item.price_start).toLocaleString("id-ID")}` : "-"} />
+            <DetailItem label="Featured" value={item.is_featured ? "Ya" : "Tidak"} />
+            <DetailItem label="Created at" value={formatDateTime(item.created_at)} />
+            <DetailItem label="Approved at" value={formatDateTime(item.approved_at)} />
+            <DetailItem label="Rejected at" value={formatDateTime(item.rejected_at)} />
+            <div className="rounded-2xl bg-[#FFF8E7] p-4 md:col-span-2">
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-[#064E3B]/60">Deskripsi</p>
+              <p className="mt-2 whitespace-pre-line text-sm leading-6 text-[#1F2937]/72">{item.description || "-"}</p>
+            </div>
+          </div>
+        </div>
+        <div className="mt-5 grid gap-3 rounded-2xl bg-[#FFF8E7] p-4 md:grid-cols-[140px_1fr_auto]">
+          <label className="label">Barokah Score<input type="number" value={score} onChange={(event) => setScore(event.target.value)} className="field" /></label>
+          <label className="label">Badges<input value={badges} onChange={(event) => setBadges(event.target.value)} className="field" /></label>
+          <label className="flex items-center gap-2 self-end rounded-2xl bg-white px-4 py-3 font-semibold text-[#064E3B]">
+            <input type="checkbox" checked={featured} onChange={(event) => setFeatured(event.target.checked)} />
+            Featured
+          </label>
+          <label className="label md:col-span-3">
+            Catatan verifikasi
+            <textarea value={note} onChange={(event) => setNote(event.target.value)} rows={3} className="field resize-none" />
+          </label>
+        </div>
+        <div className="mt-5 flex flex-wrap gap-2">
+          <button type="button" onClick={() => saveChanges()} className="rounded-xl border border-[#064E3B]/15 px-5 py-3 font-black text-[#064E3B]">Simpan perubahan</button>
+          <button type="button" onClick={() => confirm("Approve UMKM ini?") && approveUmkmFromRow({ ...item, barokah_score: score, badges, verification_note: note, is_featured: featured }, onUpdate)} className="rounded-xl bg-[#064E3B] px-5 py-3 font-black text-white">Approve</button>
+          <button type="button" onClick={() => confirm("Reject UMKM ini?") && saveChanges({ status: "rejected", rejected_at: new Date().toISOString() })} className="rounded-xl bg-red-50 px-5 py-3 font-black text-red-700">Reject</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function approveUmkmFromRow(item, onUpdate) {
+  const normalizedScore = Number(item.barokah_score || 0);
+  const parsedBadges = splitBadges(item.badges);
+  const shouldUseDefaultBadges =
+    !parsedBadges.length || (parsedBadges.length === 1 && parsedBadges[0] === "Menunggu Verifikasi");
+
+  onUpdate(item.id, {
+    status: "approved",
+    approved_at: new Date().toISOString(),
+    verification_note: item.verification_note || null,
+    barokah_score: normalizedScore > 0 ? normalizedScore : 85,
+    badges: shouldUseDefaultBadges ? ["Terkurasi", "Menunggu Review Lanjutan"] : parsedBadges,
+    is_featured: Boolean(item.is_featured),
+  });
 }
 
 function aggregateLeads(leads) {
@@ -815,9 +1145,10 @@ function ModerationHeader({ icon: Icon, title, status, setStatus, vendorId, setV
   );
 }
 
-function ModerationActions({ onSave, onApprove, onReject, onDelete }) {
+function ModerationActions({ onDetail, onSave, onApprove, onReject, onDelete }) {
   return (
-    <div className="mt-4 grid grid-cols-2 gap-2 lg:grid-cols-4">
+    <div className="mt-4 grid grid-cols-2 gap-2 lg:grid-cols-5">
+      <button type="button" onClick={onDetail} className="rounded-xl bg-[#ECFDF5] px-3 py-2 text-sm font-black text-[#064E3B]">Detail</button>
       <button type="button" onClick={onSave} className="rounded-xl border border-[#064E3B]/15 px-3 py-2 text-sm font-black text-[#064E3B]">Simpan</button>
       <button type="button" onClick={onApprove} className="rounded-xl bg-[#064E3B] px-3 py-2 text-sm font-black text-white">Approve</button>
       <button type="button" onClick={onReject} className="rounded-xl bg-amber-100 px-3 py-2 text-sm font-black text-amber-800">Reject</button>
@@ -887,9 +1218,18 @@ function StatusBadge({ status, label }) {
     pending: "bg-amber-100 text-amber-800",
     approved: "bg-emerald-100 text-emerald-800",
     rejected: "bg-red-100 text-red-800",
+    suspended: "bg-gray-100 text-gray-700",
     website: "bg-[#ECFDF5] text-[#064E3B]",
   };
   return <span className={`inline-flex rounded-full px-3 py-1 text-xs font-black ${styles[status] || styles.pending}`}>{label || status || "pending"}</span>;
+}
+
+function AccountBadge({ connected }) {
+  return connected ? (
+    <span className="inline-flex rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-800">Akun Terhubung</span>
+  ) : (
+    <span className="inline-flex rounded-full bg-amber-100 px-3 py-1 text-xs font-black text-amber-800">Belum Ada Akun</span>
+  );
 }
 
 function BadgeSoft({ children }) {
