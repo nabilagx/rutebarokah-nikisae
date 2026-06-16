@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Heart, MapPin, MessageCircle, PackageCheck, Star } from "lucide-react";
+import { ArrowRight, Heart, MapPin, MessageCircle, PackageCheck, UsersRound } from "lucide-react";
 import VendorImage from "./VendorImage.jsx";
 import { formatRupiah, splitBadges } from "@/lib/formatters";
 import { openVendorWhatsapp } from "@/lib/leadTracking";
@@ -10,6 +10,8 @@ import { openVendorWhatsapp } from "@/lib/leadTracking";
 export default function VendorCard({ vendor }) {
   const [openingWhatsapp, setOpeningWhatsapp] = useState(false);
   const badges = splitBadges(vendor.badges).slice(0, 3);
+  const fitTags = getFitTags(vendor);
+  const capacityLabel = `${vendor.capacity_min || 0}-${vendor.capacity_max || 0} pax`;
 
   async function handleWhatsapp() {
     setOpeningWhatsapp(true);
@@ -43,18 +45,36 @@ export default function VendorCard({ vendor }) {
             <span className="-mt-1 text-[10px] font-bold leading-3 text-[#1F2937]/60">Barokah<br />Score</span>
           </div>
         </div>
+
         <p className="mt-3 flex items-center gap-1 text-sm text-[#1F2937]/70">
           <MapPin size={15} />
-          {vendor.location || "Lokasi belum diisi"} • {vendor.capacity_min || 0}-{vendor.capacity_max || 0} pax
+          {vendor.location || "Lokasi belum diisi"} - kapasitas {capacityLabel}
         </p>
-        <p className="mt-3 text-base font-black text-[#08734F]">{formatRupiah(vendor.price_start)}/pax</p>
+
+        <div className="mt-3 flex items-center justify-between gap-3 rounded-2xl bg-[#ECFDF5] px-4 py-3">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#1F2937]/45">Harga mulai</p>
+            <p className="text-base font-black text-[#08734F]">{formatRupiah(vendor.price_start)}/pax</p>
+          </div>
+          <div className="inline-flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-xs font-black text-[#064E3B] shadow-soft">
+            <UsersRound size={15} />
+            {capacityLabel}
+          </div>
+        </div>
+
         <div className="mt-4 flex flex-wrap gap-2">
-          {(badges.length ? badges : ["Responsif", "Terkurasi"]).map((badge) => (
+          {(badges.length ? badges : ["Terkurasi", "Responsif"]).map((badge) => (
             <span key={badge} className="rounded-lg bg-[#F4F4F2] px-3 py-1.5 text-xs font-semibold text-[#1F2937]/72">
               {badge}
             </span>
           ))}
+          {fitTags.map((tag) => (
+            <span key={tag} className="rounded-lg bg-[#FFF8E7] px-3 py-1.5 text-xs font-bold text-[#064E3B]">
+              {tag}
+            </span>
+          ))}
         </div>
+
         <div className="mt-5 grid gap-2">
           <button
             type="button"
@@ -75,4 +95,15 @@ export default function VendorCard({ vendor }) {
       </div>
     </article>
   );
+}
+
+function getFitTags(vendor) {
+  const text = `${vendor.category || ""} ${vendor.subcategory || ""} ${vendor.description || ""}`.toLowerCase();
+  const tags = [];
+
+  if (text.includes("manasik") || text.includes("snack") || text.includes("nasi")) tags.push("Cocok untuk Manasik");
+  if (text.includes("catering") || text.includes("katering") || text.includes("rombongan") || Number(vendor.capacity_max || 0) >= 50) tags.push("Cocok untuk Rombongan Jamaah");
+  if (text.includes("transport") || text.includes("laundry") || text.includes("katering") || text.includes("catering")) tags.push("Cocok untuk Travel/KBIH");
+
+  return (tags.length ? tags : ["Cocok untuk Rombongan Jamaah", "Cocok untuk Travel/KBIH"]).slice(0, 3);
 }

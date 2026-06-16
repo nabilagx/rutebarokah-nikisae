@@ -2,22 +2,21 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Box, MapPin, Search, SlidersHorizontal, Store, UsersRound } from "lucide-react";
+import { ArrowRight, Box, MapPin, Search, SlidersHorizontal, Store, UsersRound, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
-import { categories, locations } from "@/lib/constants";
 import VendorCard from "@/components/mvp/VendorCard.jsx";
 import LoadingState from "@/components/mvp/LoadingState.jsx";
 import EmptyState from "@/components/mvp/EmptyState.jsx";
 
 const HERO_IMAGE = "https://upload.wikimedia.org/wikipedia/commons/thumb/b/be/Al_Qibla.jpg/1280px-Al_Qibla.jpg";
 const capacityOptions = ["Semua Kapasitas", "10 - 50 pax", "51 - 100 pax", "101 - 300 pax", "300+ pax"];
-const featureOptions = ["Terkurasi Admin", "Responsif", "Cocok untuk Rombongan", "Harga Terjangkau", "Cocok untuk Manasik"];
 
 export default function VendorsPage() {
   const [vendors, setVendors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
+  const [subcategory, setSubcategory] = useState("");
   const [location, setLocation] = useState("");
   const [capacity, setCapacity] = useState("Semua Kapasitas");
   const [error, setError] = useState("");
@@ -40,11 +39,16 @@ export default function VendorsPage() {
     loadVendors();
   }, []);
 
+  const categoryOptions = useMemo(() => getCountOptions(vendors, "category"), [vendors]);
+  const locationOptions = useMemo(() => getCountOptions(vendors, "location"), [vendors]);
+  const subcategoryOptions = useMemo(() => getCountOptions(vendors, "subcategory"), [vendors]);
+
   const filtered = useMemo(() => {
     return vendors.filter((vendor) => {
       const text = `${vendor.business_name || ""} ${vendor.category || ""} ${vendor.subcategory || ""} ${vendor.location || ""}`.toLowerCase();
       const matchSearch = text.includes(search.toLowerCase());
       const matchCategory = category ? vendor.category === category : true;
+      const matchSubcategory = subcategory ? vendor.subcategory === subcategory : true;
       const matchLocation = location ? vendor.location === location : true;
       const max = Number(vendor.capacity_max || 0);
       const matchCapacity =
@@ -53,9 +57,25 @@ export default function VendorsPage() {
         (capacity === "51 - 100 pax" && max > 50 && max <= 100) ||
         (capacity === "101 - 300 pax" && max > 100 && max <= 300) ||
         (capacity === "300+ pax" && max > 300);
-      return matchSearch && matchCategory && matchLocation && matchCapacity;
+      return matchSearch && matchCategory && matchSubcategory && matchLocation && matchCapacity;
     });
-  }, [vendors, search, category, location, capacity]);
+  }, [vendors, search, category, subcategory, location, capacity]);
+
+  const activeFilters = [
+    search ? { key: "search", label: `Pencarian: ${search}`, clear: () => setSearch("") } : null,
+    location ? { key: "location", label: `Lokasi: ${location}`, clear: () => setLocation("") } : null,
+    category ? { key: "category", label: `Kategori: ${category}`, clear: () => setCategory("") } : null,
+    subcategory ? { key: "subcategory", label: `Subkategori: ${subcategory}`, clear: () => setSubcategory("") } : null,
+    capacity !== "Semua Kapasitas" ? { key: "capacity", label: `Kapasitas: ${capacity}`, clear: () => setCapacity("Semua Kapasitas") } : null,
+  ].filter(Boolean);
+
+  function resetFilters() {
+    setSearch("");
+    setCategory("");
+    setSubcategory("");
+    setLocation("");
+    setCapacity("Semua Kapasitas");
+  }
 
   return (
     <main className="bg-white">
@@ -66,6 +86,8 @@ export default function VendorsPage() {
         setCategory={setCategory}
         location={location}
         setLocation={setLocation}
+        categoryOptions={categoryOptions}
+        locationOptions={locationOptions}
       />
 
       <section className="section-shell grid gap-7 py-10 lg:grid-cols-[250px_1fr]">
@@ -76,39 +98,36 @@ export default function VendorsPage() {
           </div>
           <FilterGroup title="Lokasi">
             <input
-              value={location}
-              onChange={(event) => setLocation(event.target.value)}
-              placeholder="Cari lokasi..."
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Cari vendor, lokasi, kategori..."
               className="field rounded-xl py-3 text-sm"
             />
-            {locations.slice(0, 5).map((item, index) => (
-              <CheckRow key={item} label={`${item} (${45 - index * 7})`} checked={location === item} onChange={() => setLocation(location === item ? "" : item)} />
-            ))}
+            {locationOptions.length ? locationOptions.map((item) => (
+              <CheckRow key={item.value} label={`${item.value} (${item.count})`} checked={location === item.value} onChange={() => setLocation(location === item.value ? "" : item.value)} />
+            )) : <SmallEmpty text="Belum ada lokasi approved." />}
           </FilterGroup>
           <FilterGroup title="Kategori">
-            {categories.slice(0, 5).map((item, index) => (
-              <CheckRow key={item} label={`${item} (${45 - index * 6})`} checked={category === item} onChange={() => setCategory(category === item ? "" : item)} />
-            ))}
+            {categoryOptions.length ? categoryOptions.map((item) => (
+              <CheckRow key={item.value} label={`${item.value} (${item.count})`} checked={category === item.value} onChange={() => setCategory(category === item.value ? "" : item.value)} />
+            )) : <SmallEmpty text="Belum ada kategori approved." />}
           </FilterGroup>
-          <FilterGroup title="Kapasitas">
+          {!!subcategoryOptions.length && (
+            <FilterGroup title="Subkategori">
+              {subcategoryOptions.map((item) => (
+                <CheckRow key={item.value} label={`${item.value} (${item.count})`} checked={subcategory === item.value} onChange={() => setSubcategory(subcategory === item.value ? "" : item.value)} />
+              ))}
+            </FilterGroup>
+          )}
+          <FilterGroup title="Kapasitas" withMore={false}>
             {capacityOptions.map((item) => (
               <RadioRow key={item} label={item} checked={capacity === item} onChange={() => setCapacity(item)} />
-            ))}
-          </FilterGroup>
-          <FilterGroup title="Fitur Unggulan">
-            {featureOptions.map((item) => (
-              <CheckRow key={item} label={item} />
             ))}
           </FilterGroup>
           <div className="mt-5 grid grid-cols-2 gap-3">
             <button
               type="button"
-              onClick={() => {
-                setSearch("");
-                setCategory("");
-                setLocation("");
-                setCapacity("Semua Kapasitas");
-              }}
+              onClick={resetFilters}
               className="rounded-xl border border-[#064E3B]/12 px-4 py-3 font-bold text-[#1F2937]/72"
             >
               Reset
@@ -131,6 +150,24 @@ export default function VendorsPage() {
             </select>
           </div>
 
+          {!!activeFilters.length && (
+            <div className="mb-6 flex flex-wrap items-center gap-2">
+              {activeFilters.map((filter) => (
+                <button
+                  key={filter.key}
+                  type="button"
+                  onClick={filter.clear}
+                  className="inline-flex items-center gap-2 rounded-full border border-[#064E3B]/15 bg-[#ECFDF5] px-3 py-2 text-xs font-black text-[#064E3B]"
+                >
+                  {filter.label} <X size={14} />
+                </button>
+              ))}
+              <button type="button" onClick={resetFilters} className="rounded-full bg-[#064E3B] px-3 py-2 text-xs font-black text-white">
+                Reset Filter
+              </button>
+            </div>
+          )}
+
           {error && (
             <div className="mb-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
               {error}
@@ -147,8 +184,8 @@ export default function VendorsPage() {
             </div>
           ) : (
             <EmptyState
-              title="Belum ada UMKM yang cocok"
-              description="Coba ubah filter pencarian. Data katalog ini tetap membaca UMKM approved dari Supabase."
+              title="Belum ada UMKM yang sesuai"
+              description="Belum ada UMKM yang sesuai. Coba ubah lokasi atau kategori."
             />
           )}
         </div>
@@ -174,7 +211,7 @@ export default function VendorsPage() {
   );
 }
 
-function CatalogHero({ search, setSearch, category, setCategory, location, setLocation }) {
+function CatalogHero({ search, setSearch, category, setCategory, location, setLocation, categoryOptions, locationOptions }) {
   return (
     <section className="relative overflow-hidden bg-[#EEF6F0]">
       <div className="absolute inset-0">
@@ -187,7 +224,7 @@ function CatalogHero({ search, setSearch, category, setCategory, location, setLo
             Temukan Vendor Halal Untuk Kebutuhan Ibadah Anda
           </h1>
           <p className="mt-5 max-w-xl text-lg leading-8 text-[#1F2937]/74">
-            Ratusan UMKM halal terkurasi siap mendukung perjalanan ibadah Anda.
+            UMKM halal terkurasi siap mendukung kebutuhan manasik, rombongan jamaah, travel, dan KBIH.
           </p>
         </div>
         <div className="mt-9 rounded-[18px] bg-white p-6 shadow-premium">
@@ -195,13 +232,13 @@ function CatalogHero({ search, setSearch, category, setCategory, location, setLo
             <SearchField icon={MapPin} label="Lokasi / Kota">
               <select value={location} onChange={(event) => setLocation(event.target.value)} className="w-full bg-transparent text-sm text-[#1F2937]/72 outline-none">
                 <option value="">Contoh: Jember</option>
-                {locations.map((item) => <option key={item} value={item}>{item}</option>)}
+                {locationOptions.map((item) => <option key={item.value} value={item.value}>{item.value}</option>)}
               </select>
             </SearchField>
             <SearchField icon={Box} label="Kategori">
               <select value={category} onChange={(event) => setCategory(event.target.value)} className="w-full bg-transparent text-sm text-[#1F2937]/72 outline-none">
                 <option value="">Pilih kategori</option>
-                {categories.map((item) => <option key={item} value={item}>{item}</option>)}
+                {categoryOptions.map((item) => <option key={item.value} value={item.value}>{item.value}</option>)}
               </select>
             </SearchField>
             <SearchField icon={UsersRound} label="Kapasitas (Opsional)">
@@ -230,12 +267,12 @@ function SearchField({ icon: Icon, label, children }) {
   );
 }
 
-function FilterGroup({ title, children }) {
+function FilterGroup({ title, children, withMore = false }) {
   return (
     <div className="border-b border-[#064E3B]/10 py-4 last:border-b-0">
       <h3 className="mb-3 font-black text-[#1F2937]">{title}</h3>
       <div className="grid gap-3">{children}</div>
-      <button type="button" className="mt-2 text-sm font-bold text-[#08734F]">Lihat semua</button>
+      {withMore && <button type="button" className="mt-2 text-sm font-bold text-[#08734F]">Lihat semua</button>}
     </div>
   );
 }
@@ -256,4 +293,20 @@ function RadioRow({ label, checked, onChange }) {
       {label}
     </label>
   );
+}
+
+function SmallEmpty({ text }) {
+  return <p className="rounded-xl bg-[#ECFDF5] p-3 text-xs font-semibold text-[#064E3B]">{text}</p>;
+}
+
+function getCountOptions(items, key) {
+  const map = new Map();
+  items.forEach((item) => {
+    const value = item?.[key];
+    if (!value) return;
+    map.set(value, (map.get(value) || 0) + 1);
+  });
+  return Array.from(map.entries())
+    .map(([value, count]) => ({ value, count }))
+    .sort((a, b) => b.count - a.count || a.value.localeCompare(b.value));
 }
