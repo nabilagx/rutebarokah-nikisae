@@ -433,22 +433,18 @@ function AllUmkmPanel({ items, onDetail, onUpdate }) {
         <SelectBare value={account} onChange={setAccount} options={["", "connected", "missing"]} placeholder="Semua akun" />
         <SelectBare value={sort} onChange={setSort} options={["terbaru", "nama", "score"]} />
       </div>
-      <div className="mt-5 overflow-x-auto">
-        <table className="w-full min-w-[1280px] text-left text-sm">
+      <div className="mt-5 hidden overflow-x-auto lg:block">
+        <table className="w-full min-w-[920px] text-left text-sm">
           <thead className="text-xs uppercase tracking-[0.12em] text-[#064E3B]/60">
             <tr className="border-b border-[#064E3B]/10">
-              <th className="py-3">Business</th>
-              <th>Owner</th>
-              <th>Email</th>
-              <th>WhatsApp</th>
-              <th>ID</th>
+              <th className="py-3">Nama UMKM</th>
               <th>Kategori</th>
               <th>Lokasi</th>
               <th>Status</th>
+              <th>Akun</th>
               <th>Score</th>
               <th>Featured</th>
-              <th>Created</th>
-              <th>Akun</th>
+              <th>Tanggal Daftar</th>
               <th>Action</th>
             </tr>
           </thead>
@@ -456,36 +452,119 @@ function AllUmkmPanel({ items, onDetail, onUpdate }) {
             {filtered.length ? filtered.map((item) => (
               <tr key={item.id} className="border-b border-[#064E3B]/8 align-top">
                 <td className="py-4 font-black text-[#064E3B]">{item.business_name || "-"}</td>
-                <td>{item.owner_name || "-"}</td>
-                <td>{item.owner_email || "-"}</td>
-                <td>{formatWhatsapp(item.whatsapp)}</td>
-                <td>{item.registration_code || "-"}</td>
                 <td><BadgeSoft>{item.category || "-"}</BadgeSoft></td>
                 <td>{item.location || "-"}</td>
                 <td><StatusBadge status={item.status || "pending"} /></td>
+                <td><AccountBadge connected={Boolean(item.user_id)} /></td>
                 <td className="font-black">{item.barokah_score || 0}</td>
                 <td>{item.is_featured ? "Ya" : "Tidak"}</td>
                 <td>{formatDate(item.created_at)}</td>
-                <td><AccountBadge connected={Boolean(item.user_id)} /></td>
                 <td>
-                  <div className="flex flex-wrap gap-2">
-                    <button type="button" onClick={() => onDetail(item)} className="rounded-lg bg-[#064E3B] px-3 py-2 font-bold text-white">Detail</button>
-                    <button type="button" onClick={() => onDetail(item)} className="rounded-lg border border-[#064E3B]/15 px-3 py-2 font-bold text-[#064E3B]">Edit</button>
-                    <button type="button" onClick={() => confirm("Approve UMKM ini?") && approveUmkmFromRow(item, onUpdate)} className="rounded-lg bg-emerald-50 px-3 py-2 font-bold text-emerald-700">Approve</button>
-                    <button type="button" onClick={() => confirm("Reject UMKM ini?") && onUpdate(item.id, { status: "rejected", rejected_at: new Date().toISOString() })} className="rounded-lg bg-red-50 px-3 py-2 font-bold text-red-700">Reject</button>
-                    <button type="button" onClick={() => onUpdate(item.id, { status: "suspended", updated_at: new Date().toISOString() })} className="rounded-lg bg-gray-100 px-3 py-2 font-bold text-gray-700">Suspend</button>
-                    <a href={`/vendors/${item.id}`} target="_blank" rel="noreferrer" className="rounded-lg bg-[#FFF8E7] px-3 py-2 font-bold text-[#064E3B]">Public</a>
-                  </div>
+                  <RowActions item={item} onDetail={onDetail} onUpdate={onUpdate} />
                 </td>
               </tr>
             )) : (
-              <tr><td colSpan="13" className="py-6 text-center text-[#1F2937]/60">Tidak ada UMKM sesuai filter.</td></tr>
+              <tr><td colSpan="9" className="py-6 text-center text-[#1F2937]/60">Tidak ada UMKM sesuai filter.</td></tr>
             )}
           </tbody>
         </table>
       </div>
+      <div className="mt-5 grid gap-3 lg:hidden">
+        {filtered.length ? filtered.map((item) => (
+          <article key={item.id} className="rounded-2xl border border-[#064E3B]/10 bg-[#FFF8E7] p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="font-black text-[#064E3B]">{item.business_name || "-"}</h3>
+                <p className="mt-1 text-sm text-[#1F2937]/62">{item.category || "-"} • {item.location || "-"}</p>
+              </div>
+              <StatusBadge status={item.status || "pending"} />
+            </div>
+            <div className="mt-3 grid gap-2 text-sm sm:grid-cols-3">
+              <div><p className="text-xs font-black uppercase text-[#064E3B]/55">Akun</p><AccountBadge connected={Boolean(item.user_id)} /></div>
+              <div><p className="text-xs font-black uppercase text-[#064E3B]/55">Score</p><p className="font-black">{item.barokah_score || 0}</p></div>
+              <div><p className="text-xs font-black uppercase text-[#064E3B]/55">Daftar</p><p className="font-semibold">{formatDate(item.created_at)}</p></div>
+            </div>
+            <div className="mt-4">
+              <RowActions item={item} onDetail={onDetail} onUpdate={onUpdate} />
+            </div>
+          </article>
+        )) : (
+          <EmptyText text="Tidak ada UMKM sesuai filter." />
+        )}
+      </div>
     </section>
   );
+}
+
+function RowActions({ item, onDetail, onUpdate }) {
+  const status = item.status || "pending";
+
+  const baseButton = "rounded-lg px-3 py-2 text-sm font-bold";
+  const detailButton = (
+    <button type="button" onClick={() => onDetail(item)} className={`${baseButton} bg-[#064E3B] text-white`}>
+      Detail
+    </button>
+  );
+  const editButton = (
+    <button type="button" onClick={() => onDetail(item)} className={`${baseButton} border border-[#064E3B]/15 text-[#064E3B]`}>
+      Edit
+    </button>
+  );
+
+  if (status === "pending") {
+    return (
+      <div className="flex flex-wrap gap-2">
+        {detailButton}
+        <button type="button" onClick={() => confirm("Approve UMKM ini?") && approveUmkmFromRow(item, onUpdate)} className={`${baseButton} bg-emerald-50 text-emerald-700`}>
+          Approve
+        </button>
+        <button type="button" onClick={() => confirm("Reject UMKM ini?") && onUpdate(item.id, { status: "rejected", rejected_at: new Date().toISOString() })} className={`${baseButton} bg-red-50 text-red-700`}>
+          Reject
+        </button>
+      </div>
+    );
+  }
+
+  if (status === "approved") {
+    return (
+      <div className="flex flex-wrap gap-2">
+        {detailButton}
+        {editButton}
+        <button type="button" onClick={() => onUpdate(item.id, { status: "suspended", updated_at: new Date().toISOString() })} className={`${baseButton} bg-gray-100 text-gray-700`}>
+          Suspend
+        </button>
+        <a href={`/vendors/${item.id}`} target="_blank" rel="noreferrer" className={`${baseButton} bg-[#FFF8E7] text-[#064E3B]`}>
+          Public
+        </a>
+      </div>
+    );
+  }
+
+  if (status === "rejected") {
+    return (
+      <div className="flex flex-wrap gap-2">
+        {detailButton}
+        <button type="button" onClick={() => confirm("Re-Approve UMKM ini?") && approveUmkmFromRow(item, onUpdate)} className={`${baseButton} bg-emerald-50 text-emerald-700`}>
+          Re-Approve
+        </button>
+        {editButton}
+      </div>
+    );
+  }
+
+  if (status === "suspended") {
+    return (
+      <div className="flex flex-wrap gap-2">
+        {detailButton}
+        <button type="button" onClick={() => confirm("Aktifkan UMKM ini kembali?") && approveUmkmFromRow(item, onUpdate)} className={`${baseButton} bg-emerald-50 text-emerald-700`}>
+          Activate
+        </button>
+        {editButton}
+      </div>
+    );
+  }
+
+  return <div className="flex flex-wrap gap-2">{detailButton}{editButton}</div>;
 }
 
 function LeadsPanel({ leads, onDetail }) {
@@ -1038,9 +1117,13 @@ function UmkmDetailModal({ item, onClose, onUpdate }) {
             <DetailItem label="Subkategori" value={item.subcategory} />
             <DetailItem label="Lokasi" value={item.location} />
             <DetailItem label="Alamat" value={item.address} />
-            <DetailItem label="Kapasitas" value={`${item.capacity_min || 0}-${item.capacity_max || 0} pax`} />
+            <DetailItem label="Kapasitas minimum" value={item.capacity_min ? `${item.capacity_min} pax` : "-"} />
+            <DetailItem label="Kapasitas maksimum" value={item.capacity_max ? `${item.capacity_max} pax` : "-"} />
             <DetailItem label="Harga mulai" value={item.price_start ? `Rp ${Number(item.price_start).toLocaleString("id-ID")}` : "-"} />
+            <DetailItem label="Barokah Score" value={`${item.barokah_score || 0}/100`} />
+            <DetailItem label="Badges" value={splitBadges(item.badges).join(", ") || "-"} />
             <DetailItem label="Featured" value={item.is_featured ? "Ya" : "Tidak"} />
+            <DetailItem label="Status akun" value={item.user_id ? "Akun Terhubung" : "Belum Ada Akun"} />
             <DetailItem label="Created at" value={formatDateTime(item.created_at)} />
             <DetailItem label="Approved at" value={formatDateTime(item.approved_at)} />
             <DetailItem label="Rejected at" value={formatDateTime(item.rejected_at)} />
@@ -1064,8 +1147,20 @@ function UmkmDetailModal({ item, onClose, onUpdate }) {
         </div>
         <div className="mt-5 flex flex-wrap gap-2">
           <button type="button" onClick={() => saveChanges()} className="rounded-xl border border-[#064E3B]/15 px-5 py-3 font-black text-[#064E3B]">Simpan perubahan</button>
-          <button type="button" onClick={() => confirm("Approve UMKM ini?") && approveUmkmFromRow({ ...item, barokah_score: score, badges, verification_note: note, is_featured: featured }, onUpdate)} className="rounded-xl bg-[#064E3B] px-5 py-3 font-black text-white">Approve</button>
-          <button type="button" onClick={() => confirm("Reject UMKM ini?") && saveChanges({ status: "rejected", rejected_at: new Date().toISOString() })} className="rounded-xl bg-red-50 px-5 py-3 font-black text-red-700">Reject</button>
+          {item.status !== "approved" && (
+            <button type="button" onClick={() => confirm("Approve UMKM ini?") && approveUmkmFromRow({ ...item, barokah_score: score, badges, verification_note: note, is_featured: featured }, onUpdate)} className="rounded-xl bg-[#064E3B] px-5 py-3 font-black text-white">
+              {item.status === "rejected" || item.status === "suspended" ? "Re-Approve" : "Approve"}
+            </button>
+          )}
+          {item.status !== "rejected" && (
+            <button type="button" onClick={() => confirm("Reject UMKM ini?") && saveChanges({ status: "rejected", rejected_at: new Date().toISOString() })} className="rounded-xl bg-red-50 px-5 py-3 font-black text-red-700">Reject</button>
+          )}
+          {item.status === "approved" && (
+            <button type="button" onClick={() => saveChanges({ status: "suspended" })} className="rounded-xl bg-gray-100 px-5 py-3 font-black text-gray-700">Suspend</button>
+          )}
+          <a href={`/vendors/${item.id}`} target="_blank" rel="noreferrer" className="rounded-xl bg-[#FFF8E7] px-5 py-3 font-black text-[#064E3B]">
+            Lihat Public
+          </a>
         </div>
       </div>
     </div>
@@ -1228,7 +1323,12 @@ function AccountBadge({ connected }) {
   return connected ? (
     <span className="inline-flex rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-800">Akun Terhubung</span>
   ) : (
-    <span className="inline-flex rounded-full bg-amber-100 px-3 py-1 text-xs font-black text-amber-800">Belum Ada Akun</span>
+    <span
+      className="inline-flex rounded-full bg-amber-100 px-3 py-1 text-xs font-black text-amber-800"
+      title="Data ini belum terhubung dengan akun dashboard UMKM. Biasanya terjadi pada data dummy/import manual atau pendaftaran lama."
+    >
+      Belum Ada Akun
+    </span>
   );
 }
 
