@@ -2,13 +2,22 @@
 
 import React, { useState } from "react";
 import PageHeader from "@/components/mvp/PageHeader.jsx";
-import { categories, locations, requesterTypes } from "@/lib/constants";
+import { categories, locations } from "@/lib/constants";
 import { supabase } from "@/lib/supabaseClient";
+
+const requesterTypeOptions = [
+  { value: "travel", label: "Travel Umrah" },
+  { value: "kbih", label: "KBIH" },
+  { value: "masjid", label: "Masjid" },
+  { value: "keluarga_jamaah", label: "Keluarga Jamaah" },
+  { value: "jamaah", label: "Jamaah" },
+  { value: "lainnya", label: "Lainnya" },
+];
 
 const initialForm = {
   requester_name: "",
   organization_name: "",
-  requester_type: "Travel Umrah",
+  requester_type: "travel",
   need_category: "Katering",
   location: "Makkah",
   event_date: "",
@@ -36,9 +45,12 @@ export default function RequestVendorPage() {
 
     const payload = {
       ...form,
+      requester_type: normalizeRequesterType(form.requester_type),
       pax: form.pax ? Number(form.pax) : null,
       status: "new",
     };
+
+    console.log("vendor_requests insert payload:", payload);
 
     const { error: insertError } = await supabase.from("vendor_requests").insert(payload);
 
@@ -66,7 +78,7 @@ export default function RequestVendorPage() {
           <div className="grid gap-5 md:grid-cols-2">
             <Input label="Nama Pemohon" name="requester_name" value={form.requester_name} onChange={updateField} required />
             <Input label="Nama Organisasi" name="organization_name" value={form.organization_name} onChange={updateField} />
-            <Select label="Tipe Pemohon" name="requester_type" value={form.requester_type} onChange={updateField} options={requesterTypes} />
+            <Select label="Tipe Pemohon" name="requester_type" value={form.requester_type} onChange={updateField} options={requesterTypeOptions} />
             <Select label="Kategori Kebutuhan" name="need_category" value={form.need_category} onChange={updateField} options={categories} />
             <Select label="Lokasi" name="location" value={form.location} onChange={updateField} options={locations} />
             <Input label="Tanggal Kebutuhan" name="event_date" value={form.event_date} onChange={updateField} type="date" />
@@ -108,12 +120,27 @@ function Select({ label, options, ...props }) {
     <label className="label">
       {label}
       <select className="field" {...props}>
-        {options.map((option) => (
-          <option key={option} value={option}>{option}</option>
-        ))}
+        {options.map((option) => {
+          const value = typeof option === "string" ? option : option.value;
+          const optionLabel = typeof option === "string" ? option : option.label;
+          return <option key={value} value={value}>{optionLabel}</option>;
+        })}
       </select>
     </label>
   );
+}
+
+function normalizeRequesterType(value) {
+  const map = {
+    "Travel Umrah": "travel",
+    KBIH: "kbih",
+    Masjid: "masjid",
+    "Komunitas Jamaah": "jamaah",
+    Korporasi: "lainnya",
+    Lainnya: "lainnya",
+  };
+
+  return map[value] || value;
 }
 
 function Alert({ type, message }) {
